@@ -6,7 +6,7 @@
 
 #include "State.h"
 
-int main(void){
+int main(int argc, char* argv[]){
 	State state;
 	State* statePtr = &state;
 	if(!State_Init(statePtr)){
@@ -18,7 +18,7 @@ int main(void){
 	while(!shouldQuit) {
 		SDL_Event event;
 		while(SDL_PollEvent(&event)){
-			if(event.type == SDL_EVENT_QUIT) {
+			if(event.type == SDL_QUIT) {
 				shouldQuit = 1;
 				break;
 			}

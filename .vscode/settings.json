@@ -1,5 +1,6 @@
 {
 	"files.associations": {
-		"yoga.h": "c"
+		"yoga.h": "c",
+		"xiosbase": "c"
 	}
 }
