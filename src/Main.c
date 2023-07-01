@@ -15,7 +15,7 @@ int main(int argc, char* argv[]){
 	}
 
 	bool shouldQuit = false;
-	while(!shouldQuit) {
+	while(!shouldQuit && !statePtr->shouldQuit) {
 		SDL_Event event;
 		while(SDL_PollEvent(&event)){
 			if(event.type == SDL_QUIT) {

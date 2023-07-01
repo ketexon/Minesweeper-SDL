@@ -1,6 +1,10 @@
 {
 	"files.associations": {
 		"yoga.h": "c",
-		"xiosbase": "c"
+		"xiosbase": "c",
+		"cmath": "c",
+		"math.h": "c",
+		"ios": "c",
+		"sdl_image.h": "c"
 	}
 }

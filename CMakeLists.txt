@@ -14,8 +14,8 @@ add_subdirectory(extern/SDL_image)
 
 add_subdirectory(extern/yoga)
 
-add_executable(
-	Minesweeper
+set(
+	MinesweeperSrc
 	src/Main.c
 	src/Constants.h
 	src/State.h src/State.c
@@ -26,6 +26,12 @@ add_executable(
 
 	rc/rc.rc
 )
+
+add_executable(
+	Minesweeper WIN32
+	${MinesweeperSrc}
+)
+
 
 target_link_libraries(
 	Minesweeper
@@ -39,5 +45,11 @@ target_link_libraries(
 set_target_properties(
 	Minesweeper
 	PROPERTIES
-	C_STANDARD 11
+	C_STANDARD 17
+)
+
+target_compile_definitions(
+	Minesweeper
+	PUBLIC
+	$<$<CONFIG:Debug>:KET_DEBUG>
 )
