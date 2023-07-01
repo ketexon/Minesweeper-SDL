@@ -1,3 +1,6 @@
+1 ICON "icon_lg.ico"
+2 ICON "icon_sm.ico"
+
 TILESHEET KET_IMAGE sprites.png
 
 TILE_NORMAL KET_RECT {
