@@ -6,7 +6,15 @@
 
 #include "State.h"
 
+#include "Win.h"
+
 int main(int argc, char* argv[]){
+#ifdef KET_DEBUG
+	if(AllocConsole()){
+		freopen("CONOUT$", "w", stdout);
+	}
+#endif
+
 	State state;
 	State* statePtr = &state;
 	if(!State_Init(statePtr)){

@@ -2,13 +2,17 @@
 #include "Constants.h"
 #include "Win.h"
 
+#include "Resources.h"
+
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include <SDL_image.h>
 #include <SDL_syswm.h>
 
+#ifdef KET_DEBUG
 void DrawLayoutNodeOutline(State* state, YGNodeRef node){
 	SDL_FRect rect = Node_GetNodeScreenRect(node);
 
@@ -24,13 +28,7 @@ void DrawLayoutNodeOutlineRecursive(State* state, YGNodeRef root){
 
 	DrawLayoutNodeOutline(state, root);
 }
-
-SDL_Rect* LoadRectResource(const wchar_t* name){
-	HRSRC src = FindResourceW(NULL, name, RC_TYPE_RECT);
-	HGLOBAL data = LoadResource(NULL, src);
-	void* mem = LockResource(data);
-	return (SDL_Rect*) mem;
-}
+#endif
 
 SDL_FRect RectToFRect(const SDL_Rect* rect){
 	return (SDL_FRect) {
@@ -118,50 +116,7 @@ bool State_Init(State* state){
 
 	State_InitLayout(state);
 
-	HRSRC tilesheetSrc = FindResourceW(NULL, RC_TILESHEET, RC_TYPE_IMAGE);
-	HGLOBAL tilesheetData = LoadResource(NULL, tilesheetSrc);
-	void* tilesheetMem = LockResource(tilesheetData);
-	SDL_RWops* tilesheetRW = SDL_RWFromMem(tilesheetMem, SizeofResource(NULL, tilesheetSrc));
-
-	SDL_Texture* tilesheet = IMG_LoadTextureTyped_RW(
-		state->sdl.renderer,
-		tilesheetRW,
-		true,
-		"PNG"
-	);
-
-	state->images.tilesheet.texture = tilesheet;
-	state->images.tilesheet.normal = *LoadRectResource(RC_TILE_NORMAL);
-	state->images.tilesheet.pressed = *LoadRectResource(RC_TILE_PRESSED);
-	state->images.tilesheet.flaged = *LoadRectResource(RC_TILE_FLAGGED);
-	state->images.tilesheet.mine = *LoadRectResource(RC_TILE_BOMB);
-	state->images.tilesheet.mineRed = *LoadRectResource(RC_TILE_BOMB_RED);
-	state->images.tilesheet.tileDigit[0] = *LoadRectResource(RC_TILE_1);
-	state->images.tilesheet.tileDigit[1] = *LoadRectResource(RC_TILE_2);
-	state->images.tilesheet.tileDigit[2] = *LoadRectResource(RC_TILE_3);
-	state->images.tilesheet.tileDigit[3] = *LoadRectResource(RC_TILE_4);
-	state->images.tilesheet.tileDigit[4] = *LoadRectResource(RC_TILE_5);
-	state->images.tilesheet.tileDigit[5] = *LoadRectResource(RC_TILE_6);
-	state->images.tilesheet.tileDigit[6] = *LoadRectResource(RC_TILE_7);
-	state->images.tilesheet.tileDigit[7] = *LoadRectResource(RC_TILE_8);
-
-	state->images.tilesheet.smiley.normal = *LoadRectResource(RC_SMILEY_DEFAULT);
-	state->images.tilesheet.smiley.pressed = *LoadRectResource(RC_SMILEY_PRESSED);
-	state->images.tilesheet.smiley.win = *LoadRectResource(RC_SMILEY_WIN);
-	state->images.tilesheet.smiley.lose = *LoadRectResource(RC_SMILEY_LOSE);
-
-	state->images.tilesheet.digit[0] = *LoadRectResource(RC_DIGIT_0);
-	state->images.tilesheet.digit[1] = *LoadRectResource(RC_DIGIT_1);
-	state->images.tilesheet.digit[2] = *LoadRectResource(RC_DIGIT_2);
-	state->images.tilesheet.digit[3] = *LoadRectResource(RC_DIGIT_3);
-	state->images.tilesheet.digit[4] = *LoadRectResource(RC_DIGIT_4);
-	state->images.tilesheet.digit[5] = *LoadRectResource(RC_DIGIT_5);
-	state->images.tilesheet.digit[6] = *LoadRectResource(RC_DIGIT_6);
-	state->images.tilesheet.digit[7] = *LoadRectResource(RC_DIGIT_7);
-	state->images.tilesheet.digit[8] = *LoadRectResource(RC_DIGIT_8);
-	state->images.tilesheet.digit[9] = *LoadRectResource(RC_DIGIT_9);
-	state->images.tilesheet.digitMinus = *LoadRectResource(RC_DIGIT_MINUS);
-	state->images.tilesheet.digitEmpty = *LoadRectResource(RC_DIGIT_EMPTY);
+	State_LoadResources(state);
 
 	state->mouse.tileHoverX = -1;
 	state->mouse.tileHoverY = -1;
@@ -272,6 +227,8 @@ void State_InitMines(State* state, int tileX, int tileY){
 }
 
 void State_StartGame(State* state, int tileX, int tileY){
+	//srand(time(NULL));
+
 	State_InitMines(state, tileX, tileY);
 	state->ticksStarted = SDL_GetTicks64();
 	state->gameStarted = true;
@@ -302,9 +259,10 @@ void State_UncoverTile(State* state, int tileX, int tileY){
 	if(surroundingMines == 0){
 		for(int x = tileX - 1; x <= tileX + 1; ++x){
 			for(int y = tileY - 1; y <= tileY + 1; ++y){
-				if((x == tileY && y == tileY) || x < 0 || x >= state->board.width || y < 0 || y >= state->board.height) {
+				if((x == tileX && y == tileY) || x < 0 || x >= state->board.width || y < 0 || y >= state->board.height) {
 					continue;
 				}
+
 				if(!(state->board.tiles[x + y * state->board.width].state & TILE_STATE_UNCOVERED)){
 					State_UncoverTile(state, x, y);
 				}
@@ -572,7 +530,7 @@ void State_Update(State* state){
 	int minesLeft = state->board.nMines - state->board.minesFlagged;
 	int place = 100;
 	for(int i = 0; i < 3; ++i){
-		if(minesLeft < 0 && -minesLeft < place && -minesLeft >= place/10){
+		if(minesLeft < 0 && i == 0){
 			SDL_RenderCopyF(
 				state->sdl.renderer,
 				state->images.tilesheet.texture,
@@ -584,7 +542,7 @@ void State_Update(State* state){
 			SDL_RenderCopyF(
 				state->sdl.renderer,
 				state->images.tilesheet.texture,
-				&state->images.tilesheet.digit[(minesLeft / place) % 10],
+				&state->images.tilesheet.digit[(abs(minesLeft) / place) % 10],
 				&fRect
 			);
 		}
