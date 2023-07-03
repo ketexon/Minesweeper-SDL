@@ -56,5 +56,12 @@ void State_LoadResources(State* state) {
 	state->images.tilesheet.digit[8] = *LoadRectResource(RC_DIGIT_8);
 	state->images.tilesheet.digit[9] = *LoadRectResource(RC_DIGIT_9);
 	state->images.tilesheet.digitMinus = *LoadRectResource(RC_DIGIT_MINUS);
-	state->images.tilesheet.digitEmpty = *LoadRectResource(RC_DIGIT_EMPTY);
+
+	state->images.tilesheet.border.ur = *LoadRectResource(RC_BORDER_UR);
+	state->images.tilesheet.border.ul = *LoadRectResource(RC_BORDER_UL);
+	state->images.tilesheet.border.dr = *LoadRectResource(RC_BORDER_DR);
+	state->images.tilesheet.border.dl = *LoadRectResource(RC_BORDER_DL);
+
+	state->images.tilesheet.border.dl = *LoadRectResource(RC_BORDER_DL);
+	state->images.tilesheet.border.dl = *LoadRectResource(RC_BORDER_DL);
 }

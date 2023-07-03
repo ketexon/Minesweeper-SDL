@@ -25,7 +25,7 @@ set(
 	src/Win.h
 	src/Resources.h src/Resources.c
 
-	rc/rc.rc
+	rc/rc-v2.rc
 )
 
 add_executable(

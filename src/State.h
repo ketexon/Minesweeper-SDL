@@ -76,7 +76,6 @@ typedef struct State {
 			SDL_Rect mineRed;
 			SDL_Rect tileDigit[8];
 			SDL_Rect digit[10];
-			SDL_Rect digitEmpty;
 			SDL_Rect digitMinus;
 
 			struct {
@@ -85,6 +84,19 @@ typedef struct State {
 				SDL_Rect win;
 				SDL_Rect lose;
 			} smiley;
+
+			struct {
+				SDL_Rect ur;
+				SDL_Rect ul;
+				SDL_Rect dr;
+				SDL_Rect dl;
+
+				SDL_Rect lr;
+				SDL_Rect ud;
+
+				SDL_Rect uld;
+				SDL_Rect urd;
+			} border;
 		} tilesheet;
 
 	} images;
