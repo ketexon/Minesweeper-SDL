@@ -5,6 +5,7 @@
 		"cmath": "c",
 		"math.h": "c",
 		"ios": "c",
-		"sdl_image.h": "c"
+		"sdl_image.h": "c",
+		"random": "c"
 	}
 }

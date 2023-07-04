@@ -1,133 +1,14 @@
 #include "State.h"
 #include "Constants.h"
 
-SDL_FRect Node_GetNodeScreenRect(YGNodeRef node){
-	YGNodeRef parent = YGNodeGetParent(node);
-	SDL_FRect rect = { 0 };
-	if(parent){
-		SDL_FRect parentRect = Node_GetNodeScreenRect(parent);
-		rect.x = parentRect.x;
-		rect.y = parentRect.y;
-	}
-
-	rect.x += YGNodeLayoutGetLeft(node);
-	rect.y += YGNodeLayoutGetTop(node);
-	rect.w += YGNodeLayoutGetWidth(node);
-	rect.h += YGNodeLayoutGetHeight(node);
-
-	return rect;
-}
-
-float aspectRatio = 1.0f;
-
-YGSize AspectRatioMeasureFunc(
-	YGNodeRef node,
-	float w, YGMeasureMode widthMode,
-	float h, YGMeasureMode heightMode
-) {
-	if(aspectRatio * h > w) return (YGSize) { w, w / aspectRatio };
-	else return (YGSize) { h * aspectRatio, h };
-}
+#include <stdio.h>
 
 void State_InitLayout(State* state) {
-	YGNodeRef root = YGNodeNew();
-	YGNodeStyleSetPadding(root, YGEdgeAll, 16);
-
-	YGNodeStyleSetDisplay(root, YGDisplayFlex);
-	YGNodeStyleSetFlexDirection(root, YGFlexDirectionRow);
-	YGNodeStyleSetJustifyContent(root, YGJustifyCenter);
-	YGNodeStyleSetAlignItems(root, YGAlignStretch);
-
-	YGNodeRef ui = YGNodeNew();
-	YGNodeInsertChild(root, ui, 0);
-
-	YGNodeStyleSetDisplay(ui, YGDisplayFlex);
-	YGNodeStyleSetFlexDirection(root, YGFlexDirectionColumn);
-	YGNodeStyleSetJustifyContent(root, YGJustifyCenter);
-	YGNodeStyleSetAlignItems(root, YGAlignCenter);
-
-	YGNodeStyleSetFlex(ui, 1);
-
-	YGNodeRef menu = YGNodeNew();
-	YGNodeInsertChild(ui, menu, 0);
-
-	YGNodeStyleSetPaddingPercent(menu, YGEdgeAll, 1.0f);
-
-	// YGNodeStyleSetFlex(menu, 1);
-	YGNodeStyleSetHeightPercent(menu, 10.0f);
-
-	YGNodeStyleSetDisplay(menu, YGDisplayFlex);
-	YGNodeStyleSetFlexDirection(menu, YGFlexDirectionRow);
-	YGNodeStyleSetAlignItems(menu, YGAlignStretch);
-
-	YGNodeRef minesLeftContainer = YGNodeNew();
-	YGNodeRef smileyContainer = YGNodeNew();
-	YGNodeRef timeContainer = YGNodeNew();
-
-	YGNodeInsertChild(menu, minesLeftContainer, 0);
-	YGNodeInsertChild(menu, smileyContainer, 1);
-	YGNodeInsertChild(menu, timeContainer, 2);
-
-	YGNodeStyleSetFlex(minesLeftContainer, 1);
-	YGNodeStyleSetFlex(smileyContainer, 1);
-	YGNodeStyleSetFlex(timeContainer, 1);
-
-	YGNodeStyleSetAlignItems(minesLeftContainer, YGAlignStretch);
-	YGNodeStyleSetAlignItems(smileyContainer, YGAlignStretch);
-	YGNodeStyleSetAlignItems(timeContainer, YGAlignStretch);
-
-	YGNodeStyleSetFlexDirection(minesLeftContainer, YGFlexDirectionColumn);
-	YGNodeStyleSetFlexDirection(smileyContainer, YGFlexDirectionColumn);
-	YGNodeStyleSetFlexDirection(timeContainer, YGFlexDirectionColumn);
-
-	YGNodeStyleSetAlignItems(minesLeftContainer, YGAlignCenter);
-	YGNodeStyleSetAlignItems(smileyContainer, YGAlignCenter);
-	YGNodeStyleSetAlignItems(timeContainer, YGAlignCenter);
-
-	YGNodeStyleSetPaddingPercent(smileyContainer, YGEdgeAll, 1.25f);
-
-	// each digit sprite is 13 x 23 pixels
-	YGNodeRef minesLeft = YGNodeNew();
-	YGNodeInsertChild(minesLeftContainer, minesLeft, 0);
-
-	YGNodeStyleSetFlex(minesLeft, 1.0f);
-	YGNodeStyleSetAspectRatio(minesLeft, 3 * 13.0f / 23.0f);
-
-	YGNodeRef smiley = YGNodeNew();
-	YGNodeInsertChild(smileyContainer, smiley, 0);
-
-	YGNodeStyleSetFlex(smiley, 1.0f);
-	YGNodeStyleSetAspectRatio(smiley, 1.0f);
-
-	YGNodeRef time = YGNodeNew();
-	YGNodeInsertChild(timeContainer, time, 0);
-
-	YGNodeStyleSetFlex(time, 1.0f);
-	YGNodeStyleSetAspectRatio(time, 3 * 13.0f / 23.0f);
-
-
-	YGNodeRef boardNode = YGNodeNew();
-	YGNodeInsertChild(ui, boardNode, 1);
-
-	YGNodeStyleSetFlex(boardNode, 1);
-
-	YGNodeSetMeasureFunc(boardNode, AspectRatioMeasureFunc);
-
-	state->layout.root = root;
-	state->layout.ui = ui;
-	state->layout.board = boardNode;
-
-	state->layout.minesLeft = minesLeft;
-	state->layout.smiley = smiley;
-	state->layout.time = time;
-
-	State_InitBoard(state);
-
 	State_RecalculateLayout(state, WINDOW_WIDTH, WINDOW_HEIGHT);
 }
 
 void State_RecalculateBoardLayout(State* state) {
-	SDL_FRect boardRect = Node_GetNodeScreenRect(state->layout.board);
+	SDL_FRect boardRect = state->layoutv2.board;
 
 	float tileWidth = boardRect.w / state->board.width;
 	float tileHeight = boardRect.h / state->board.height;
@@ -146,10 +27,208 @@ void State_RecalculateBoardLayout(State* state) {
 	}
 }
 
-void State_RecalculateLayout(State* state, int windowWidth, int windowHeight){
-	YGNodeStyleSetWidth(state->layout.root, (float) windowWidth);
-	YGNodeStyleSetHeight(state->layout.root, (float) windowHeight);
-	YGNodeCalculateLayout(state->layout.root, YGUndefined, YGUndefined, YGDirectionLTR);
+void State_RecalculateLayoutV2(State* state, int windowWidthPx, int windowHeightPx){
+	const float windowContentPadding = 0.025f;
 
+	const int borderThicknessPx = 10;
+	const int uiPaddingPx = 4;
+	const int tileLengthPx = 16;
+	const int smileyHeightPx = 24;
+	const int digitsWidthPx = 13 * 3;
+
+	int boardWidthPx = state->board.width * tileLengthPx;
+
+	int boardHeightPx = state->board.height * tileLengthPx;
+	int uiHeightPx = smileyHeightPx + 2 * uiPaddingPx;
+
+	int gameWidthPx = boardWidthPx + 2 * borderThicknessPx;
+	int gameHeightPx = boardHeightPx + uiHeightPx + 3 * borderThicknessPx;
+
+	float gameAspectRatio = (float)gameWidthPx / gameHeightPx;
+
+	float windowContentPaddingPx = KET_MIN(windowContentPadding * windowWidthPx, windowContentPadding * windowHeightPx);
+
+	float windowContentWidth = windowWidthPx - 2 * windowContentPaddingPx;
+	float windowContentHeight = windowHeightPx - 2 * windowContentPaddingPx;
+
+	state->layoutv2.content = (SDL_FRect) {
+		.x = windowContentPaddingPx,
+		.y = windowContentPaddingPx,
+		.w = windowContentWidth,
+		.h = windowContentHeight,
+	};
+
+	float windowContentAspectRatio = windowContentWidth / windowContentHeight;
+
+	float gameWidthPxScaled;
+	float gameHeightPxScaled;
+
+	// true: game width is too big -> width fills
+	if(gameAspectRatio > windowContentAspectRatio){
+		gameWidthPxScaled = windowContentWidth;
+		gameHeightPxScaled = gameWidthPxScaled / gameAspectRatio;
+	}
+	// false: game height too big -> height fills
+	else{
+		gameHeightPxScaled = windowContentHeight;
+		gameWidthPxScaled = gameHeightPxScaled * gameAspectRatio;
+	}
+
+	printf("%d %d\n", gameWidthPx, gameHeightPx);
+
+	float scale = gameHeightPxScaled / gameHeightPx;
+	float borderThicknessPxScaled = borderThicknessPx * scale;
+
+	float boardWidthPxScaled = boardWidthPx * scale;
+	float boardHeightPxScaled = boardHeightPx * scale;
+
+	float uiHeightPxScaled = uiHeightPx * scale;
+	float uiPaddingPxScaled = uiPaddingPx * scale;
+	float smileyLengthPxScaled = smileyHeightPx * scale;
+	float digitsWidthPxScaled = digitsWidthPx * scale;
+
+	SDL_FRect gameRect = (SDL_FRect) {
+		.x = (windowWidthPx - gameWidthPxScaled)/2.0f,
+		.y = (windowHeightPx - gameHeightPxScaled)/2.0f,
+		.w = gameWidthPxScaled,
+		.h = gameHeightPxScaled,
+	};
+
+	state->layoutv2.game = gameRect;
+
+	state->layoutv2.ui = (SDL_FRect) {
+		.x = gameRect.x + borderThicknessPxScaled,
+		.y = gameRect.y + borderThicknessPxScaled,
+		.w = boardWidthPxScaled,
+		.h = uiHeightPxScaled
+	};
+
+	state->layoutv2.board = (SDL_FRect) {
+		.x = gameRect.x + borderThicknessPxScaled,
+		.y = gameRect.y + 2 * borderThicknessPxScaled + uiHeightPxScaled,
+		.w = boardWidthPxScaled,
+		.h = boardHeightPxScaled
+	};
+
+	// UI
+
+	state->layoutv2.minesRemaining = (SDL_FRect){
+		.x = state->layoutv2.ui.x + uiPaddingPxScaled,
+		.y = state->layoutv2.ui.y + uiPaddingPxScaled,
+		.w = digitsWidthPxScaled,
+		.h = smileyLengthPxScaled
+	};
+
+	state->layoutv2.time = (SDL_FRect){
+		.x = state->layoutv2.ui.x + state->layoutv2.ui.w - uiPaddingPxScaled - digitsWidthPxScaled,
+		.y = state->layoutv2.ui.y + uiPaddingPxScaled,
+		.w = digitsWidthPxScaled,
+		.h = smileyLengthPxScaled
+	};
+
+	state->layoutv2.smiley = (SDL_FRect){
+		.x = state->layoutv2.ui.x + (boardWidthPxScaled - smileyLengthPxScaled)/2.0f,
+		.y = state->layoutv2.ui.y + uiPaddingPxScaled,
+		.w = smileyLengthPxScaled,
+		.h = smileyLengthPxScaled
+	};
+
+
+	// BORDERS
+
+	state->layoutv2.border.uiTopLeft = (SDL_FRect) {
+		.x = gameRect.x,
+		.y = gameRect.y,
+		.w = borderThicknessPxScaled,
+		.h = borderThicknessPxScaled
+	};
+
+	state->layoutv2.border.uiTop = (SDL_FRect) {
+		.x = gameRect.x + borderThicknessPxScaled,
+		.y = gameRect.y,
+		.w = boardWidthPxScaled,
+		.h = borderThicknessPxScaled
+	};
+
+	state->layoutv2.border.uiTopRight = (SDL_FRect) {
+		.x = gameRect.x + borderThicknessPxScaled + boardWidthPxScaled,
+		.y = gameRect.y,
+		.w = borderThicknessPxScaled,
+		.h = borderThicknessPxScaled
+	};
+
+	state->layoutv2.border.uiLeft = (SDL_FRect) {
+		.x = gameRect.x,
+		.y = gameRect.y + borderThicknessPxScaled,
+		.w = borderThicknessPxScaled,
+		.h = uiHeightPxScaled
+	};
+
+	state->layoutv2.border.uiRight = (SDL_FRect) {
+		.x = gameRect.x + borderThicknessPxScaled + boardWidthPxScaled,
+		.y = gameRect.y + borderThicknessPxScaled,
+		.w = borderThicknessPxScaled,
+		.h = uiHeightPxScaled
+	};
+
+	state->layoutv2.border.uiBottomLeft = (SDL_FRect) {
+		.x = gameRect.x,
+		.y = gameRect.y + borderThicknessPxScaled + uiHeightPxScaled,
+		.w = borderThicknessPxScaled,
+		.h = borderThicknessPxScaled
+	};
+
+	state->layoutv2.border.uiBottom = (SDL_FRect) {
+		.x = gameRect.x + borderThicknessPxScaled,
+		.y = gameRect.y + borderThicknessPxScaled + uiHeightPxScaled,
+		.w = boardWidthPxScaled,
+		.h = borderThicknessPxScaled
+	};
+
+	state->layoutv2.border.uiBottomRight = (SDL_FRect) {
+		.x = gameRect.x + borderThicknessPxScaled + boardWidthPxScaled,
+		.y = gameRect.y + borderThicknessPxScaled + uiHeightPxScaled,
+		.w = borderThicknessPxScaled,
+		.h = borderThicknessPxScaled
+	};
+
+	state->layoutv2.border.boardLeft = (SDL_FRect) {
+		.x = gameRect.x,
+		.y = gameRect.y + 2 * borderThicknessPxScaled + uiHeightPxScaled,
+		.w = borderThicknessPxScaled,
+		.h = boardHeightPxScaled
+	};
+
+	state->layoutv2.border.boardRight = (SDL_FRect) {
+		.x = gameRect.x + borderThicknessPxScaled + boardWidthPxScaled,
+		.y = gameRect.y + 2 * borderThicknessPxScaled + uiHeightPxScaled,
+		.w = borderThicknessPxScaled,
+		.h = boardHeightPxScaled
+	};
+
+	state->layoutv2.border.boardBottomLeft = (SDL_FRect) {
+		.x = gameRect.x,
+		.y = gameRect.y + 2 * borderThicknessPxScaled + uiHeightPxScaled + boardHeightPxScaled,
+		.w = borderThicknessPxScaled,
+		.h = borderThicknessPxScaled
+	};
+
+	state->layoutv2.border.boardBottom = (SDL_FRect) {
+		.x = gameRect.x + borderThicknessPxScaled,
+		.y = gameRect.y + 2 * borderThicknessPxScaled + uiHeightPxScaled + boardHeightPxScaled,
+		.w = boardWidthPxScaled,
+		.h = borderThicknessPxScaled
+	};
+
+	state->layoutv2.border.boardBottomRight = (SDL_FRect) {
+		.x = gameRect.x + borderThicknessPxScaled + boardWidthPxScaled,
+		.y = gameRect.y + 2 * borderThicknessPxScaled + uiHeightPxScaled + boardHeightPxScaled,
+		.w = borderThicknessPxScaled,
+		.h = borderThicknessPxScaled
+	};
+}
+
+void State_RecalculateLayout(State* state, int windowWidth, int windowHeight){
+	State_RecalculateLayoutV2(state, windowWidth, windowHeight);
 	State_RecalculateBoardLayout(state);
 }

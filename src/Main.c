@@ -2,7 +2,9 @@
 
 #include <stdbool.h>
 
-#include <yoga/Yoga.h>
+#ifdef KET_DEBUG
+#include <stdio.h>
+#endif
 
 #include "State.h"
 

@@ -12,8 +12,6 @@ set(SDL2IMAGE_SAMPLES OFF)
 set(SDL2IMAGE_TESTS OFF)
 add_subdirectory(extern/SDL_image)
 
-add_subdirectory(extern/yoga)
-
 set(
 	MinesweeperSrc
 	src/Main.c
@@ -25,7 +23,7 @@ set(
 	src/Win.h
 	src/Resources.h src/Resources.c
 
-	rc/rc-v2.rc
+	rc/rc.rc
 )
 
 add_executable(
@@ -40,7 +38,6 @@ target_link_libraries(
 	SDL2::SDL2
 	SDL2::SDL2main
 	SDL2_image
-	yogacore
 )
 
 set_target_properties(

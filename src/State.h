@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 #include <SDL.h>
-#include <yoga/Yoga.h>
 
 typedef enum TileState {
 	TILE_STATE_UNINITIALIZED	= 0b00000,
@@ -43,14 +42,31 @@ typedef struct State {
 	} sdl;
 
 	struct {
-		YGNodeRef root;
-		YGNodeRef ui;
-		YGNodeRef board;
+		SDL_FRect content;
+		SDL_FRect game;
+		SDL_FRect board;
+		SDL_FRect ui;
+		SDL_FRect minesRemaining;
+		SDL_FRect smiley;
+		SDL_FRect time;
+		struct {
+			SDL_FRect uiBottom;
+			SDL_FRect uiBottomRight;
+			SDL_FRect uiRight;
+			SDL_FRect uiTopRight;
+			SDL_FRect uiTop;
+			SDL_FRect uiTopLeft;
+			SDL_FRect uiLeft;
+			SDL_FRect uiBottomLeft;
 
-		YGNodeRef minesLeft;
-		YGNodeRef smiley;
-		YGNodeRef time;
-	} layout;
+
+			SDL_FRect boardLeft;
+			SDL_FRect boardBottomLeft;
+			SDL_FRect boardBottom;
+			SDL_FRect boardBottomRight;
+			SDL_FRect boardRight;
+		} border;
+	} layoutv2;
 
 	bool drewFirstFrame;
 
@@ -119,8 +135,8 @@ void State_InitBoard(State*);
 void State_InitLayout(State*);
 
 void State_CreateBoard(State*);
-void State_RecalculateBoardLayout(State*);
 
+void State_RecalculateBoardLayout(State*);
 void State_RecalculateLayout(State*, int width, int height);
 
 void State_HandleEvent(State*, SDL_Event*);
@@ -129,5 +145,3 @@ void State_Update(State*);
 void State_DestroyBoard(State*);
 
 void State_Destroy(State*);
-
-SDL_FRect Node_GetNodeScreenRect(YGNodeRef);

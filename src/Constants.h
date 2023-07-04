@@ -76,3 +76,6 @@
 #define IDM_EASY 210
 #define IDM_MEDIUM 211
 #define IDM_HARD 212
+
+#define KET_MIN(a, b) ((a < b) ? (a) : (b))
+#define KET_MAX(a, b) ((a > b) ? (a) : (b))

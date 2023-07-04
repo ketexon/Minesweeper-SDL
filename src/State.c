@@ -13,20 +13,9 @@
 #include <SDL_syswm.h>
 
 #ifdef KET_DEBUG
-void DrawLayoutNodeOutline(State* state, YGNodeRef node){
-	SDL_FRect rect = Node_GetNodeScreenRect(node);
-
-	SDL_SetRenderDrawColor(state->sdl.renderer, 255, 0, 0, 255);
-	SDL_RenderDrawRectF(state->sdl.renderer, &rect);
-}
-
-void DrawLayoutNodeOutlineRecursive(State* state, YGNodeRef root){
-	int nChildren = YGNodeGetChildCount(root);
-	for(int i = 0; i < nChildren; ++i){
-		DrawLayoutNodeOutlineRecursive(state, YGNodeGetChild(root, i));
-	}
-
-	DrawLayoutNodeOutline(state, root);
+void DrawLayoutOutlineV2(State* state){
+	SDL_SetRenderDrawColor(state->sdl.renderer, 0, 255, 0, 255);
+	SDL_RenderDrawRectsF(state->sdl.renderer, (SDL_FRect*)&state->layoutv2, sizeof(state->layoutv2)/sizeof(SDL_FRect));
 }
 #endif
 
@@ -40,11 +29,10 @@ SDL_FRect RectToFRect(const SDL_Rect* rect){
 }
 
 void MousePosToTile(State* state, int mouseX, int mouseY, int* tilePosX, int* tilePosY){
-	YGNodeRef node = state->layout.board;
-	SDL_FRect nodeRect = Node_GetNodeScreenRect(node);
+	SDL_FRect boardRect = state->layoutv2.board;
 
-	float tileWidth = nodeRect.w / state->board.width;
-	float tileHeight = nodeRect.h / state->board.height;
+	float tileWidth = boardRect.w / state->board.width;
+	float tileHeight = boardRect.h / state->board.height;
 
 	// tile tx, ty is the rect:
 	//	{
@@ -59,8 +47,8 @@ void MousePosToTile(State* state, int mouseX, int mouseY, int* tilePosX, int* ti
 	// similarly, ty = (my - top)/tileHeight;
 
 	// note: we cannot just do int -> float cast because it rounds towards 0, so -0.5 -0.5 rounds to 0 0
-	int tx = floorf((mouseX - nodeRect.x)/tileWidth);
-	int ty = floorf((mouseY - nodeRect.y)/tileHeight);
+	int tx = floorf((mouseX - boardRect.x)/tileWidth);
+	int ty = floorf((mouseY - boardRect.y)/tileHeight);
 
 	// if tile pos not valid, set to -1, -1
 	if(tx < 0 || tx >= state->board.width || ty < 0 || ty >= state->board.height){
@@ -114,6 +102,7 @@ bool State_Init(State* state){
 		return false;
 	}
 
+	State_InitBoard(state);
 	State_InitLayout(state);
 
 	State_LoadResources(state);
@@ -134,8 +123,6 @@ void State_InitBoard(State* state){
 	state->board.nMines = BOARD_N_MINES_MEDIUM;
 
 	State_CreateBoard(state);
-
-	State_RecalculateBoardLayout(state);
 }
 
 void State_CreateBoard(State* state){
@@ -357,13 +344,12 @@ void State_HandleEvent(State* state, SDL_Event* event){
 					}
 				}
 
-				SDL_FRect smileyRect = Node_GetNodeScreenRect(state->layout.smiley);
 				SDL_FRect mouseRect = (SDL_FRect) {
 					.x = event->button.x,
 					.y = event->button.y,
 					.w = 1, .h = 1,
 				};
-				if(SDL_HasIntersectionF(&smileyRect, &mouseRect)){
+				if(SDL_HasIntersectionF(&state->layoutv2.smiley, &mouseRect)){
 					state->mouse.smileyDown = true;
 				}
 			}
@@ -393,13 +379,12 @@ void State_HandleEvent(State* state, SDL_Event* event){
 			state->mouse.tileHoverX = tx;
 			state->mouse.tileHoverY = ty;
 
-			SDL_FRect smileyRect = Node_GetNodeScreenRect(state->layout.smiley);
 			SDL_FRect mouseRect = (SDL_FRect) {
 				.x = event->button.x,
 				.y = event->button.y,
 				.w = 1, .h = 1,
 			};
-			state->mouse.smileyHovered = SDL_HasIntersectionF(&smileyRect, &mouseRect);
+			state->mouse.smileyHovered = SDL_HasIntersectionF(&state->layoutv2.smiley, &mouseRect);
 
 			break;
 		}
@@ -495,9 +480,10 @@ void State_Update(State* state){
 	SDL_RenderClear(state->sdl.renderer);
 
 	// Draw UI
+	SDL_FRect* pFRect;
 	SDL_FRect fRect;
 
-	fRect = Node_GetNodeScreenRect(state->layout.smiley);
+	pFRect = &state->layoutv2.smiley;
 	SDL_Rect smileyRect;
 
 	if(state->mouse.smileyDown && state->mouse.smileyHovered){
@@ -519,12 +505,12 @@ void State_Update(State* state){
 		state->sdl.renderer,
 		state->images.tilesheet.texture,
 		&smileyRect,
-		&fRect
+		pFRect
 	);
 
 
 
-	fRect = Node_GetNodeScreenRect(state->layout.minesLeft);
+	fRect = state->layoutv2.minesRemaining;
 	fRect.w /= 3.0f;
 
 	int minesLeft = state->board.nMines - state->board.minesFlagged;
@@ -552,7 +538,7 @@ void State_Update(State* state){
 	}
 
 
-	fRect = Node_GetNodeScreenRect(state->layout.time);
+	fRect = state->layoutv2.time;
 	fRect.w /= 3.0f;
 
 	uint64_t time;
@@ -583,7 +569,7 @@ void State_Update(State* state){
 	// Draw Tiles
 	for(size_t i = 0; i < state->board.width * state->board.height; ++i){
 		Tile* tile = &state->board.tiles[i];
-		SDL_FRect* pRect = &state->board.rects[i];
+		pFRect = &state->board.rects[i];
 
 		SDL_Rect* tilesheetRect = NULL;
 
@@ -618,12 +604,48 @@ void State_Update(State* state){
 			state->sdl.renderer,
 			state->images.tilesheet.texture,
 			tilesheetRect,
-			pRect
+			pFRect
 		);
 	}
 
+	struct Border {
+		SDL_Rect* src;
+		SDL_FRect* dst;
+	} borders[] = {
+		{ &state->images.tilesheet.border.lr, &state->layoutv2.border.uiLeft },
+		{ &state->images.tilesheet.border.lr, &state->layoutv2.border.uiRight },
+		{ &state->images.tilesheet.border.lr, &state->layoutv2.border.boardLeft },
+		{ &state->images.tilesheet.border.lr, &state->layoutv2.border.boardRight },
+
+		{ &state->images.tilesheet.border.ud, &state->layoutv2.border.uiTop },
+		{ &state->images.tilesheet.border.ud, &state->layoutv2.border.uiBottom },
+		{ &state->images.tilesheet.border.ud, &state->layoutv2.border.boardBottom },
+
+		{ &state->images.tilesheet.border.ul, &state->layoutv2.border.uiTopLeft },
+		{ &state->images.tilesheet.border.ur, &state->layoutv2.border.uiTopRight },
+		{ &state->images.tilesheet.border.dl, &state->layoutv2.border.boardBottomLeft },
+		{ &state->images.tilesheet.border.dr, &state->layoutv2.border.boardBottomRight },
+
+		{ &state->images.tilesheet.border.urd, &state->layoutv2.border.uiBottomLeft },
+		{ &state->images.tilesheet.border.uld, &state->layoutv2.border.uiBottomRight },
+	};
+
+	SDL_Rect r = state->images.tilesheet.border.ud;
+
+	// draw borders
+	for (int i = 0; i < sizeof(borders)/sizeof(*borders); ++i){
+		struct Border* border = &borders[i];
+		SDL_RenderCopyF(
+			state->sdl.renderer,
+			state->images.tilesheet.texture,
+			border->src,
+			border->dst
+		);
+	}
+
+
 #ifdef KET_DEBUG
-	DrawLayoutNodeOutlineRecursive(state, state->layout.root);
+	//DrawLayoutOutlineV2(state);
 #endif
 
 	SDL_RenderPresent(state->sdl.renderer);
@@ -641,8 +663,6 @@ void State_Destroy(State* state){
 
 	if(state->sdl.image.init) IMG_Quit();
 	if(state->sdl.init) SDL_Quit();
-
-	if(state->layout.root) YGNodeFreeRecursive(state->layout.root);
 
 	if(state->board.tiles) free(state->board.tiles);
 	if(state->board.rects) free(state->board.rects);

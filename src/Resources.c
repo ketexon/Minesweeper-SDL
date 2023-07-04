@@ -62,6 +62,9 @@ void State_LoadResources(State* state) {
 	state->images.tilesheet.border.dr = *LoadRectResource(RC_BORDER_DR);
 	state->images.tilesheet.border.dl = *LoadRectResource(RC_BORDER_DL);
 
-	state->images.tilesheet.border.dl = *LoadRectResource(RC_BORDER_DL);
-	state->images.tilesheet.border.dl = *LoadRectResource(RC_BORDER_DL);
+	state->images.tilesheet.border.lr = *LoadRectResource(RC_BORDER_LR);
+	state->images.tilesheet.border.ud = *LoadRectResource(RC_BORDER_UD);
+
+	state->images.tilesheet.border.urd = *LoadRectResource(RC_BORDER_URD);
+	state->images.tilesheet.border.uld = *LoadRectResource(RC_BORDER_ULD);
 }
