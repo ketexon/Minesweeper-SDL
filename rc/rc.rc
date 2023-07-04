@@ -93,6 +93,11 @@ SMILEY_LOSE KET_RECT {
 	24L, 24L
 }
 
+SMILEY_SURPRISE KET_RECT {
+	53L, 56L,
+	24L, 24L
+}
+
 DIGIT_0 KET_RECT {
 	0L, 0L,
 	13L, 23L
@@ -191,7 +196,7 @@ BORDER_LR KET_RECT {
 KET_MENU MENU {
 	POPUP "&File"
 	{
-		MENUITEM "E&xit", 200
+		MENUITEM "E&xit\tAlt+F4", 200
 	}
 	POPUP "&Difficulty"
 	{

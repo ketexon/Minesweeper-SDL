@@ -99,6 +99,7 @@ typedef struct State {
 				SDL_Rect pressed;
 				SDL_Rect win;
 				SDL_Rect lose;
+				SDL_Rect surprise;
 			} smiley;
 
 			struct {

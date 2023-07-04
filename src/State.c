@@ -693,7 +693,12 @@ void State_Update(State* state){
 		}
 	}
 	else {
-		smileyRect = state->images.tilesheet.smiley.normal;
+		if(state->mouse.down && state->mouse.tileHoverX != -1){
+			smileyRect = state->images.tilesheet.smiley.surprise;
+		}
+		else{
+			smileyRect = state->images.tilesheet.smiley.normal;
+		}
 	}
 
 	SDL_RenderCopyF(

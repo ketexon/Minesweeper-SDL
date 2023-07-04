@@ -44,6 +44,7 @@ void State_LoadResources(State* state) {
 	state->images.tilesheet.smiley.pressed = *LoadRectResource(RC_SMILEY_PRESSED);
 	state->images.tilesheet.smiley.win = *LoadRectResource(RC_SMILEY_WIN);
 	state->images.tilesheet.smiley.lose = *LoadRectResource(RC_SMILEY_LOSE);
+	state->images.tilesheet.smiley.surprise = *LoadRectResource(RC_SMILEY_SURPRISE);
 
 	state->images.tilesheet.digit[0] = *LoadRectResource(RC_DIGIT_0);
 	state->images.tilesheet.digit[1] = *LoadRectResource(RC_DIGIT_1);
