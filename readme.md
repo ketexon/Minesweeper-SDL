@@ -12,9 +12,9 @@ git submodule update --init --recursive
 
 ## Todo
 
- - [] Add solver to prevent 50/50s
- - [] Add support for theming
- - [] Add custom rules?
+ - [ ] Add solver to prevent 50/50s
+ - [ ] Add support for theming
+ - [ ] Add custom rules?
 
 ## Credits
 
