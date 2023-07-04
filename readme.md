@@ -9,3 +9,13 @@ Make sure to initialize git submodules:
 ```
 git submodule update --init --recursive
 ```
+
+## Todo
+
+ - [] Add solver to prevent 50/50s
+ - [] Add support for theming
+ - [] Add custom rules?
+
+## Credits
+
+Using spritesheet from [minesweeperonline](https://minesweeperonline.com/#)
