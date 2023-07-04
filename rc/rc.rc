@@ -1,3 +1,5 @@
+#include <windows.h>
+
 1 ICON "icon_lg.ico"
 2 ICON "icon_sm.ico"
 
@@ -196,5 +198,19 @@ KET_MENU MENU {
 		MENUITEM "&Easy", 210
 		MENUITEM "&Medium", 211, CHECKED
 		MENUITEM "&Hard", 212
+		MENUITEM "&Custom", 213
 	}
+}
+
+KET_CUSTOM_DIFFICULTY DIALOGEX 10, 10, 96, 70
+CAPTION "Custom Difficulty"
+STYLE WS_POPUP | WS_BORDER | WS_SYSMENU
+{
+    LTEXT "Width", 11, 4, 4, 24, 12
+    EDITTEXT 12, 28, 4, 64, 12
+	LTEXT "Height", 13, 4, 20, 24, 12
+    EDITTEXT 14, 28, 20, 64, 12
+	LTEXT "Mines", 15, 4, 36, 24, 12
+    EDITTEXT 16, 28, 36, 64, 12
+	PUSHBUTTON "&Ok", IDOK, 4, 52, 20, 12
 }

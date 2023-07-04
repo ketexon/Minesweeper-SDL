@@ -69,13 +69,21 @@
 #define RC_BORDER_ULD L"BORDER_ULD"
 #define RC_BORDER_URD L"BORDER_URD"
 
+#define RC_CUSTOM_DIFFICULTY_DIALOG L"KET_CUSTOM_DIFFICULTY"
+
 #define RC_MENU L"KET_MENU"
+#define MENU_DEFAULT_CUSTOM_DIFFICULTY_TEXT L"Custom Difficulty"
 
 #define IDM_EXIT 200
 
 #define IDM_EASY 210
 #define IDM_MEDIUM 211
 #define IDM_HARD 212
+#define IDM_CUSTOM 213
+
+#define IDE_WIDTH 12
+#define IDE_HEIGHT 14
+#define IDE_MINES 16
 
 #define KET_MIN(a, b) ((a < b) ? (a) : (b))
 #define KET_MAX(a, b) ((a > b) ? (a) : (b))
