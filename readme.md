@@ -16,6 +16,10 @@ Make sure to initialize git submodules:
 git submodule update --init --recursive
 ```
 
+Then, you need to run CMake. I recommend using VSCode's CMake extension to do all the heavy lifting.
+
+Release mode does not include a command prompt, but debug mode does.
+
 ## Todo
 
  - [] Add solver to prevent 50/50s
