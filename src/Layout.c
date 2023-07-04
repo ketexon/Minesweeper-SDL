@@ -74,8 +74,6 @@ void State_RecalculateLayoutV2(State* state, int windowWidthPx, int windowHeight
 		gameWidthPxScaled = gameHeightPxScaled * gameAspectRatio;
 	}
 
-	printf("%d %d\n", gameWidthPx, gameHeightPx);
-
 	float scale = gameHeightPxScaled / gameHeightPx;
 	float borderThicknessPxScaled = borderThicknessPx * scale;
 

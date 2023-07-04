@@ -377,21 +377,22 @@ INT_PTR CustomDifficultyDialogProc(
 			if(id == IDOK){
 				wchar_t* end;
 
-				wchar_t buffer[4] = { 0 };
+				wchar_t buffer[4];
 
+				memset(buffer, 0, sizeof(buffer)/sizeof(*buffer));
 				*((WORD*) buffer) = 3;
 				SendDlgItemMessageW(hwnd, IDE_WIDTH, EM_GETLINE, 0, (LPARAM) buffer);
-				WORD width = wcstoul(buffer, &end, 10);
+				unsigned long width = wcstoul(buffer, &end, 10);
 
+				memset(buffer, 0, sizeof(buffer)/sizeof(*buffer));
 				*((WORD*) buffer) = 3;
-				SendDlgItemMessageW(hwnd, IDE_WIDTH, EM_GETLINE, 0, (LPARAM) buffer);
-				WORD height = wcstoul(buffer, &end, 10);
+				SendDlgItemMessageW(hwnd, IDE_HEIGHT, EM_GETLINE, 0, (LPARAM) buffer);
+				unsigned long height = wcstoul(buffer, &end, 10);
 
+				memset(buffer, 0, sizeof(buffer)/sizeof(*buffer));
 				*((WORD*) buffer) = 3;
 				SendDlgItemMessageW(hwnd, IDE_MINES, EM_GETLINE, 0, (LPARAM) buffer);
-				WORD mines = wcstoul(buffer, &end, 10);
-
-
+				unsigned long mines = wcstoul(buffer, &end, 10);
 
 				if(width <= 0 || height <= 0 || mines <= 0) {
 					MessageBoxW(hwnd, L"Width, height, and mines must be greater than 0", L"Input Error", MB_OK | MB_ICONERROR);
@@ -661,6 +662,8 @@ void State_HandleEvent(State* state, SDL_Event* event){
 							false,
 							&info
 						);
+
+						free(res);
 					}
 				}
 			}
