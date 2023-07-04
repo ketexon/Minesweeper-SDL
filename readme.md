@@ -22,9 +22,9 @@ Release mode does not include a command prompt, but debug mode does.
 
 ## Todo
 
- - [] Add solver to prevent 50/50s
- - [] Add support for theming
- - [] Add custom rules?
+ - [ ] Add solver to prevent 50/50s
+ - [ ] Add support for theming
+ - [ ] Add custom rules?
 
 ## Credits
 
