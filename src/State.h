@@ -12,11 +12,13 @@ typedef enum TileState {
 	TILE_STATE_MINE 			= 0b00010,
 	TILE_STATE_FLAG				= 0b00100,
 	TILE_STATE_UNCOVERED		= 0b01000,
-	TILE_STATE_PRESSED			= 0b10000
+	TILE_STATE_PRESSED			= 0b10000,
+	TILE_STATE_ANY				= 0b11111
 } TileState;
 
 typedef struct Tile {
 	TileState state;
+	uint8_t surroundingMines;
 } Tile;
 
 typedef struct State {
@@ -73,7 +75,6 @@ typedef struct State {
 	struct {
 		size_t width, height;
 		Tile* tiles;
-		uint8_t* surroundingMines;
 		SDL_FRect* rects;
 
 		int nMines;

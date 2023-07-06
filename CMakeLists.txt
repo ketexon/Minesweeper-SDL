@@ -23,6 +23,10 @@ set(
 	src/Win.h
 	src/Resources.h src/Resources.c
 
+	src/Solver.h src/Solver.c
+
+	src/Matrix.h src/Matrix.c
+
 	rc/rc.rc
 )
 

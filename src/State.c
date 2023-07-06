@@ -12,6 +12,10 @@
 #include <SDL_image.h>
 #include <SDL_syswm.h>
 
+#include "Solver.h"
+
+void State_StartGame(State* state, int tileX, int tileY);
+
 #ifdef KET_DEBUG
 void DrawLayoutOutlineV2(State* state){
 	SDL_SetRenderDrawColor(state->sdl.renderer, 0, 255, 0, 255);
@@ -129,7 +133,6 @@ void State_CreateBoard(State* state){
 	size_t nTiles = state->board.width * state->board.height;
 
 	state->board.tiles = malloc(sizeof(Tile) * nTiles);
-	state->board.surroundingMines = malloc(sizeof(char) * nTiles);
 	state->board.rects = malloc(sizeof(SDL_FRect) * nTiles);
 
 	for(size_t i = 0; i < nTiles; ++i){
@@ -147,7 +150,6 @@ void State_CreateBoard(State* state){
 
 void State_DestroyBoard(State* state){
 	if(state->board.tiles) free(state->board.tiles);
-	if(state->board.surroundingMines) free(state->board.surroundingMines);
 	if(state->board.rects) free(state->board.rects);
 }
 
@@ -158,6 +160,35 @@ void State_ResetBoard(State* state){
 	int windowWidth, windowHeight;
 	SDL_GetWindowSizeInPixels(state->sdl.window, &windowWidth, &windowHeight);
 	State_RecalculateLayout(state, windowWidth, windowHeight);
+}
+
+bool State_HasSolution(State* state, int tileX, int tileY) {
+	SolveStateTile* tiles = malloc(state->board.width * state->board.height * sizeof(*tiles));
+	for(int i = 0; i < state->board.width * state->board.height; ++i){
+		tiles[i].flagged = state->board.tiles[i].state & TILE_STATE_FLAG;
+		tiles[i].uncovered = state->board.tiles[i].state & TILE_STATE_UNCOVERED;
+		tiles[i].surroundingMines = state->board.tiles[i].surroundingMines;
+	}
+
+	SolveState solveState = {
+		.w = state->board.width,
+		.h = state->board.height,
+		.nMinesLeft = state->board.nMines - state->board.minesFlagged,
+		.tiles = tiles,
+		.log = false,
+	};
+
+	SolveParams solveParams = {
+		.state = &solveState,
+		.tileClicked = { tileX, tileY },
+		.maxIters = 50,
+	};
+
+	bool result = HasSolution(&solveParams);
+	// printf("HAS SOLUTION?: %d\n", result);
+
+	free(tiles);
+	return result;
 }
 
 // tileX,Y is the tile clicked to start the game
@@ -200,7 +231,7 @@ void State_InitMines(State* state, int tileX, int tileY){
 
 			for(int x = tx - 1; x <= tx + 1; ++x){
 				for(int y = ty - 1; y <= ty + 1; ++y){
-					if((x == tx && y == ty) || x < 0 || x >= state->board.width || y < 0 || y >= state->board.height) {
+					if(x < 0 || x >= state->board.width || y < 0 || y >= state->board.height) {
 						continue;
 					}
 					if(state->board.tiles[x + y * state->board.width].state & TILE_STATE_MINE) {
@@ -208,16 +239,21 @@ void State_InitMines(State* state, int tileX, int tileY){
 					}
 				}
 
-				state->board.surroundingMines[index] = minesSurroundingTile;
+				state->board.tiles[index].surroundingMines = minesSurroundingTile;
 
 				state->board.tiles[index].state |= TILE_STATE_INITIALIZED;
 			}
 		}
 	}
+
+	if(!State_HasSolution(state, tileX, tileY)){
+		State_ResetBoard(state);
+		State_StartGame(state, tileX, tileY);
+	}
 }
 
 void State_StartGame(State* state, int tileX, int tileY){
-	//srand(time(NULL));
+	srand(time(NULL));
 
 	State_InitMines(state, tileX, tileY);
 	state->ticksStarted = SDL_GetTicks64();
@@ -245,7 +281,7 @@ void State_UncoverTile(State* state, int tileX, int tileY){
 	--state->board.tilesLeft;
 	tile->state |= TILE_STATE_UNCOVERED;
 
-	uint8_t surroundingMines = state->board.surroundingMines[index];
+	uint8_t surroundingMines = state->board.tiles[index].surroundingMines;
 	if(surroundingMines == 0){
 		for(int x = tileX - 1; x <= tileX + 1; ++x){
 			for(int y = tileY - 1; y <= tileY + 1; ++y){
@@ -781,7 +817,7 @@ void State_Update(State* state){
 				tilesheetRect = &state->images.tilesheet.mineRed;
 			}
 			else {
-				uint8_t surroundingMines = state->board.surroundingMines[i];
+				uint8_t surroundingMines = state->board.tiles[i].surroundingMines;
 				if(surroundingMines == 0){
 					tilesheetRect = &state->images.tilesheet.pressed;
 				}
