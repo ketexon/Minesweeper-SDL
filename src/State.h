@@ -88,6 +88,11 @@ typedef struct State {
 
 	struct {
 		struct {
+			struct {
+				SDL_Texture* original;
+				SDL_Texture* cute;
+				SDL_Texture* custom;
+			} sourceTextures;
 			SDL_Texture* texture;
 
 			SDL_Rect normal;
@@ -119,6 +124,8 @@ typedef struct State {
 				SDL_Rect uld;
 				SDL_Rect urd;
 			} border;
+
+			SDL_Rect background;
 		} tilesheet;
 
 	} images;

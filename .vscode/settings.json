@@ -9,6 +9,9 @@
 		"random": "c",
 		"win.h": "c",
 		"state.h": "c",
-		"cstdlib": "c"
+		"cstdlib": "c",
+		"constants.h": "c",
+		"combaseapi.h": "c",
+		"objbase.h": "c"
 	}
 }

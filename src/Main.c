@@ -16,6 +16,7 @@ int main(int argc, char* argv[]){
 #ifdef KET_DEBUG
 	if(AllocConsole()){
 		freopen("CONOUT$", "w", stdout);
+		freopen("CONOUT$", "w", stderr);
 	}
 #endif
 
@@ -106,6 +107,11 @@ int main(int argc, char* argv[]){
 	}
 
 	State_Destroy(statePtr);
+
+#ifdef KET_DEBUG
+	printf("Press any key to continue . . . ");
+	getch();
+#endif
 
 	return 0;
 }

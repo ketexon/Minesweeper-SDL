@@ -1,6 +1,7 @@
 #include "Win.h"
 #include "State.h"
 #include "Constants.h"
+#include "Resources.h"
 
 #include <SDL2/SDL.h>
 #include <SDL_syswm.h>
@@ -31,6 +32,128 @@ void State_CreateMenu(State* state){
 	);
 
 	if(state->menu) SetMenu(hwnd, state->menu);
+}
+
+void State_UncheckDifficulty(State* state){
+	CheckMenuItem(state->menu, IDM_EASY, MF_BYCOMMAND | MF_UNCHECKED);
+	CheckMenuItem(state->menu, IDM_MEDIUM, MF_BYCOMMAND | MF_UNCHECKED);
+	CheckMenuItem(state->menu, IDM_HARD, MF_BYCOMMAND | MF_UNCHECKED);
+	CheckMenuItem(state->menu, IDM_CUSTOM, MF_BYCOMMAND | MF_UNCHECKED);
+
+	MENUITEMINFOW info = {
+		.cbSize = sizeof(MENUITEMINFOW),
+		.fMask = MIIM_STRING,
+		.dwTypeData = MENU_DEFAULT_CUSTOM_DIFFICULTY_TEXT,
+		.cch = sizeof(MENU_DEFAULT_CUSTOM_DIFFICULTY_TEXT)/sizeof(*MENU_DEFAULT_CUSTOM_DIFFICULTY_TEXT) - 1
+	};
+
+	SetMenuItemInfoW(
+		state->menu,
+		IDM_CUSTOM,
+		false,
+		&info
+	);
+}
+
+void State_UncheckTheme(State* state){
+	CheckMenuItem(state->menu, IDM_THEME_DEFAULT, MF_BYCOMMAND | MF_UNCHECKED);
+	CheckMenuItem(state->menu, IDM_THEME_CUTE, MF_BYCOMMAND | MF_UNCHECKED);
+	CheckMenuItem(state->menu, IDM_THEME_CUSTOM, MF_BYCOMMAND | MF_UNCHECKED);
+
+	MENUITEMINFOW info = {
+		.cbSize = sizeof(MENUITEMINFOW),
+		.fMask = MIIM_STRING,
+		.dwTypeData = MENU_DEFAULT_CUSTOM_THEME_TEXT,
+		.cch = sizeof(MENU_DEFAULT_CUSTOM_THEME_TEXT)/sizeof(*MENU_DEFAULT_CUSTOM_THEME_TEXT) - 1
+	};
+
+	SetMenuItemInfoW(
+		state->menu,
+		IDM_THEME_CUSTOM,
+		false,
+		&info
+	);
+}
+
+LPWSTR State_CreateCustomThemeFileDialog(State* state){
+	LPWSTR filePathOut = NULL;
+
+	// state->images.tilesheet.texture = state->images.tilesheet.sourceTextures.original;
+	// FILE DIALOGUE
+	IFileOpenDialog* fileDialog = NULL;
+	HRESULT hr = CoCreateInstance(
+		&CLSID_FileOpenDialog,
+		NULL,
+		CLSCTX_INPROC_SERVER,
+		&IID_IFileOpenDialog,
+		&(void*) fileDialog
+	);
+	if(SUCCEEDED(hr)){
+		FILEOPENDIALOGOPTIONS options;
+		hr = fileDialog->lpVtbl->GetOptions(fileDialog, &options);
+		if(SUCCEEDED(hr)){
+			hr = fileDialog->lpVtbl->SetOptions(fileDialog, options | FOS_FORCEFILESYSTEM);
+			if(SUCCEEDED(hr)){
+				COMDLG_FILTERSPEC filters[] = {
+					{
+						.pszName = L"Image",
+						.pszSpec = L"*.png",
+					},
+				};
+				hr = fileDialog->lpVtbl->SetFileTypes(fileDialog, sizeof(filters) / sizeof(*filters), filters);
+				if(SUCCEEDED(hr)){
+					hr = fileDialog->lpVtbl->SetFileTypeIndex(fileDialog, 1);
+					if(SUCCEEDED(hr)){
+						hr = fileDialog->lpVtbl->SetDefaultExtension(fileDialog, L"png");
+						if(SUCCEEDED(hr)){
+							hr = fileDialog->lpVtbl->Show(fileDialog, NULL);
+
+							if (SUCCEEDED(hr)){
+								IShellItem* shellItem = NULL;
+								hr = fileDialog->lpVtbl->GetResult(fileDialog, &shellItem);
+								if(SUCCEEDED(hr)){
+									PWSTR filePath = NULL;
+									hr = shellItem->lpVtbl->GetDisplayName(shellItem, SIGDN_FILESYSPATH, &filePath);
+									if(SUCCEEDED(hr)){
+										filePathOut = filePath;
+									}
+									else{
+										fprintf(stderr, "Could not get filepath\n");
+									}
+								}
+								else{
+									fprintf(stderr, "Could not get result\n");
+								}
+							}
+							// else: cancelled
+						}
+						else{
+							fprintf(stderr, "Could not set default extension\n");
+						}
+					}
+					else{
+						fprintf(stderr, "Could not set file type index\n");
+					}
+				}
+				else{
+					fprintf(stderr, "Could not set file types\n");
+				}
+			}
+			else{
+				fprintf(stderr, "Could not set options\n");
+			}
+		}
+		else{
+			fprintf(stderr, "Could not get options\n");
+		}
+
+		fileDialog->lpVtbl->Release(fileDialog);
+	}
+	else{
+		fprintf(stderr, "Could not create IFileDialog\n");
+	}
+
+	return filePathOut;
 }
 
 void State_HandleMenuEvent(State* state, HWND hwnd, WORD id){
@@ -122,6 +245,95 @@ void State_HandleMenuEvent(State* state, HWND hwnd, WORD id){
 			);
 
 			free(res);
+		}
+	} else if(id == IDM_THEME_DEFAULT){
+		state->images.tilesheet.texture = state->images.tilesheet.sourceTextures.original;
+		State_UpdateBackgroundColor(state);
+
+		State_UncheckTheme(state);
+		CheckMenuItem(
+			state->menu,
+			IDM_THEME_DEFAULT,
+			MF_BYCOMMAND | MF_CHECKED
+		);
+	} else if(id == IDM_THEME_CUTE){
+		state->images.tilesheet.texture = state->images.tilesheet.sourceTextures.cute;
+		State_UpdateBackgroundColor(state);
+
+		State_UncheckTheme(state);
+		CheckMenuItem(
+			state->menu,
+			IDM_THEME_CUTE,
+			MF_BYCOMMAND | MF_CHECKED
+		);
+	} else if(id == IDM_THEME_CUSTOM){
+		LPWSTR filePath = State_CreateCustomThemeFileDialog(state);
+
+		if(filePath != NULL){
+			int mbBufferSize = WideCharToMultiByte(
+				CP_UTF8, 0,
+				filePath, -1,
+				NULL, 0,
+				NULL, NULL
+			);
+			char* filePathMB = malloc(mbBufferSize);
+
+			mbBufferSize = WideCharToMultiByte(
+				CP_UTF8, 0,
+				filePath, -1,
+				filePathMB, mbBufferSize,
+				NULL, NULL
+			);
+
+			if(mbBufferSize != 0){
+				SDL_Texture* newCustomTexture = State_LoadTextureFromPath(state, filePathMB);
+				if(state->images.tilesheet.sourceTextures.custom != NULL) {
+					SDL_DestroyTexture(state->images.tilesheet.sourceTextures.custom);
+				}
+				state->images.tilesheet.sourceTextures.custom = newCustomTexture;
+				state->images.tilesheet.texture = newCustomTexture;
+
+				State_UpdateBackgroundColor(state);
+
+				LPWSTR fileName = PathFindFileNameW(filePath);
+
+				State_UncheckTheme(state);
+				CheckMenuItem(
+					state->menu,
+					IDM_THEME_CUSTOM,
+					MF_BYCOMMAND | MF_CHECKED
+				);
+
+				size_t newMenuTextLength = sizeof(MENU_DEFAULT_CUSTOM_THEME_TEXT)/sizeof(*MENU_DEFAULT_CUSTOM_THEME_TEXT) // Default
+					+ 1 // \t
+					+ wcslen(fileName) // filename
+					+ 2;// quotes
+
+				LPWSTR newMenuText = malloc((newMenuTextLength + 1) * sizeof(*newMenuText));
+				swprintf_s(newMenuText, newMenuTextLength + 1, L"%s\t\"%s\"", MENU_DEFAULT_CUSTOM_THEME_TEXT, fileName);
+
+				MENUITEMINFOW info = {
+					.cbSize = sizeof(MENUITEMINFOW),
+					.fMask = MIIM_STRING,
+					.dwTypeData = newMenuText,
+					.cch = newMenuTextLength
+				};
+
+				SetMenuItemInfoW(
+					state->menu,
+					IDM_THEME_CUSTOM,
+					false,
+					&info
+				);
+
+				free(newMenuText);
+			}
+			else{
+				printf("Could not convert wstr to mbstr\n");
+			}
+
+			CoTaskMemFree(filePath);
+			free(filePathMB);
 		}
 	}
 }

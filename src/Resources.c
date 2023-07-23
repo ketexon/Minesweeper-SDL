@@ -24,20 +24,30 @@ Color* LoadColorResource(const wchar_t* name){
 	return (Color*) mem;
 }
 
-void State_LoadResources(State* state) {
-	HRSRC tilesheetSrc = FindResourceW(NULL, RC_TILESHEET, RC_TYPE_IMAGE);
+SDL_Texture* State_LoadTextureFromResource(State* state, LPCWSTR name, const char* filetye){
+	HRSRC tilesheetSrc = FindResourceW(NULL, name, RC_TYPE_IMAGE);
 	HGLOBAL tilesheetData = LoadResource(NULL, tilesheetSrc);
 	void* tilesheetMem = LockResource(tilesheetData);
 	SDL_RWops* tilesheetRW = SDL_RWFromMem(tilesheetMem, SizeofResource(NULL, tilesheetSrc));
 
-	SDL_Texture* tilesheet = IMG_LoadTextureTyped_RW(
+	return IMG_LoadTextureTyped_RW(
 		state->sdl.renderer,
 		tilesheetRW,
 		true,
-		"PNG"
+		filetye
 	);
+}
 
-	state->images.tilesheet.texture = tilesheet;
+SDL_Texture* State_LoadTextureFromPath(State* state, const char* path){
+	return IMG_LoadTexture(state->sdl.renderer, path);
+}
+
+void State_LoadResources(State* state) {
+	state->images.tilesheet.sourceTextures.original = State_LoadTextureFromResource(state, RC_TILESHEET_DEFAULT, "PNG");
+	state->images.tilesheet.sourceTextures.cute = State_LoadTextureFromResource(state, RC_TILESHEET_CUTE, "PNG");
+
+	state->images.tilesheet.texture = state->images.tilesheet.sourceTextures.original;
+
 	state->images.tilesheet.normal = *LoadRectResource(RC_TILE_NORMAL);
 	state->images.tilesheet.pressed = *LoadRectResource(RC_TILE_PRESSED);
 	state->images.tilesheet.flaged = *LoadRectResource(RC_TILE_FLAGGED);
@@ -81,11 +91,37 @@ void State_LoadResources(State* state) {
 	state->images.tilesheet.border.urd = *LoadRectResource(RC_BORDER_URD);
 	state->images.tilesheet.border.uld = *LoadRectResource(RC_BORDER_ULD);
 
-	Color* bgColor = LoadColorResource(RC_BACKGROUND_COLOR);
-	state->backgroundColor = (SDL_Color) {
-		.r = bgColor->r,
-		.g = bgColor->g,
-		.b = bgColor->b,
-		.a = bgColor->a,
-	};
+	state->images.tilesheet.background = *LoadRectResource(RC_BACKGROUND_RECT);
+
+	// Color* bgColor = LoadColorResource(RC_BACKGROUND_COLOR);
+	// state->backgroundColor = (SDL_Color) {
+	// 	.r = bgColor->r,
+	// 	.g = bgColor->g,
+	// 	.b = bgColor->b,
+	// 	.a = bgColor->a,
+	// };
+	State_UpdateBackgroundColor(state);
+}
+
+void State_UpdateBackgroundColor(State* state){
+	const int w = 10;
+	const int h = 10;
+	SDL_Texture* target = SDL_CreateTexture(state->sdl.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, w, h);
+	SDL_SetRenderTarget(state->sdl.renderer, target);
+
+	SDL_RenderCopy(
+		state->sdl.renderer,
+		state->images.tilesheet.texture,
+		&state->images.tilesheet.background,
+		NULL
+	);
+
+	SDL_Color* colors = malloc(w * h * sizeof(*colors));
+	SDL_RenderReadPixels(state->sdl.renderer, NULL, SDL_PIXELFORMAT_RGBA32, (void*) colors, sizeof(*colors));
+
+	SDL_SetRenderTarget(state->sdl.renderer, NULL);
+	SDL_DestroyTexture(target);
+
+	state->backgroundColor = colors[0];
+	free(colors);
 }

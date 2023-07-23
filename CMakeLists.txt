@@ -44,6 +44,7 @@ target_link_libraries(
 	SDL2::SDL2
 	SDL2::SDL2main
 	SDL2_image
+	Shlwapi.lib
 )
 
 set_target_properties(

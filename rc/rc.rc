@@ -3,7 +3,8 @@
 1 ICON "icon_lg.ico"
 2 ICON "icon_sm.ico"
 
-TILESHEET KET_IMAGE "sprites-cute.png"
+TILESHEET_ORIGINAL KET_IMAGE "sprites.png"
+TILESHEET_CUTE KET_IMAGE "sprites-cute.png"
 
 TILE_NORMAL KET_RECT {
 	0L, 39L,
@@ -193,6 +194,11 @@ BORDER_LR KET_RECT {
 	10L, 32L
 }
 
+BACKGROUND KET_RECT {
+	134L, 81L,
+	10L, 10L
+}
+
 KET_MENU MENU {
 	POPUP "&File"
 	{
@@ -204,6 +210,12 @@ KET_MENU MENU {
 		MENUITEM "&Medium", 211, CHECKED
 		MENUITEM "&Hard", 212
 		MENUITEM "&Custom", 213
+	}
+	POPUP "&Theme"
+	{
+		MENUITEM "&Default", 220, CHECKED
+		MENUITEM "&Cute", 221
+		MENUITEM "&Custom", 229
 	}
 }
 

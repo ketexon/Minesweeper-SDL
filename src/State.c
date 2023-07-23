@@ -68,6 +68,12 @@ bool State_Init(State* state){
 
 	state->shouldQuit = false;
 
+	HRESULT hr = CoInitializeEx(NULL, 0);
+	if(FAILED(hr)){
+		fprintf(stderr, "Could not initialize COM.");
+		return false;
+	}
+
 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_EVENTS) != 0){
 		fprintf(stderr, "Could not init SDL.");
 		return false;
@@ -430,46 +436,6 @@ void State_ClickSmiley(State* state){
 	State_ResetBoard(state);
 }
 
-void State_UncheckDifficulty(State* state){
-	CheckMenuItem(
-		state->menu,
-		IDM_EASY,
-		MF_BYCOMMAND | MF_UNCHECKED
-	);
-
-	CheckMenuItem(
-		state->menu,
-		IDM_MEDIUM,
-		MF_BYCOMMAND | MF_UNCHECKED
-	);
-
-	CheckMenuItem(
-		state->menu,
-		IDM_HARD,
-		MF_BYCOMMAND | MF_UNCHECKED
-	);
-
-	CheckMenuItem(
-		state->menu,
-		IDM_CUSTOM,
-		MF_BYCOMMAND | MF_UNCHECKED
-	);
-
-	MENUITEMINFOW info = {
-		.cbSize = sizeof(MENUITEMINFOW),
-		.fMask = MIIM_STRING,
-		.dwTypeData = MENU_DEFAULT_CUSTOM_DIFFICULTY_TEXT,
-		.cch = sizeof(MENU_DEFAULT_CUSTOM_DIFFICULTY_TEXT)/sizeof(*MENU_DEFAULT_CUSTOM_DIFFICULTY_TEXT) - 1
-	};
-
-	SetMenuItemInfoW(
-		state->menu,
-		IDM_CUSTOM,
-		false,
-		&info
-	);
-}
-
 void State_HandleEvent(State* state, SDL_Event* event){
 	switch(event->type){
 		case SDL_WINDOWEVENT: {
@@ -587,7 +553,6 @@ void State_HandleEvent(State* state, SDL_Event* event){
 }
 
 void State_Update(State* state){
-	// c0c0c0
 	SDL_SetRenderDrawColor(
 		state->sdl.renderer,
 		state->backgroundColor.r,
@@ -782,7 +747,12 @@ void State_Destroy(State* state){
 	if(state->sdl.renderer) SDL_DestroyRenderer(state->sdl.renderer);
 	if(state->sdl.window) SDL_DestroyWindow(state->sdl.window);
 
-	if(state->images.tilesheet.texture) SDL_DestroyTexture(state->images.tilesheet.texture);
+	SDL_Texture** sourceTextures = &state->images.tilesheet.sourceTextures.original;
+	size_t nSourceTextures = sizeof(state->images.tilesheet.sourceTextures) / sizeof(*sourceTextures);
+	for(int i = 0; i < nSourceTextures; ++i){
+		SDL_Texture* sourceTexture = sourceTextures[i];
+		if(sourceTexture != NULL) SDL_DestroyTexture(sourceTexture);
+	}
 
 	if(state->sdl.image.init) IMG_Quit();
 	if(state->sdl.init) SDL_Quit();
@@ -791,4 +761,6 @@ void State_Destroy(State* state){
 	if(state->board.rects) free(state->board.rects);
 
 	if(state->menu) DestroyMenu(state->menu);
+
+	CoUninitialize();
 }
