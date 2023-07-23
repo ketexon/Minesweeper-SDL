@@ -214,7 +214,7 @@ KET_MENU MENU {
 	POPUP "&Theme"
 	{
 		MENUITEM "&Default", 220, CHECKED
-		MENUITEM "&Cute", 221
+		MENUITEM "&Kitty cat barbie cute twink boyfriend", 221
 		MENUITEM "&Custom", 229
 	}
 }
