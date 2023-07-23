@@ -12,6 +12,8 @@ set(SDL2IMAGE_SAMPLES OFF)
 set(SDL2IMAGE_TESTS OFF)
 add_subdirectory(extern/SDL_image)
 
+add_subdirectory(extern/Lua/lua-5.4.6)
+
 set(
 	MinesweeperSrc
 	src/Main.c
