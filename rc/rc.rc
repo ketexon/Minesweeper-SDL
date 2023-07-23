@@ -3,7 +3,7 @@
 1 ICON "icon_lg.ico"
 2 ICON "icon_sm.ico"
 
-TILESHEET KET_IMAGE "sprites.png"
+TILESHEET KET_IMAGE "sprites-cute.png"
 
 TILE_NORMAL KET_RECT {
 	0L, 39L,
@@ -218,4 +218,8 @@ STYLE WS_POPUP | WS_BORDER | WS_SYSMENU
 	LTEXT "Mines", 15, 4, 36, 24, 12
     EDITTEXT 16, 28, 36, 64, 12
 	PUSHBUTTON "&Ok", IDOK, 4, 52, 20, 12
+}
+
+BG_COLOR KET_COLOR {
+	255L, 145L, 214L, 255L
 }

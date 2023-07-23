@@ -32,4 +32,5 @@ typedef struct SolveParams {
 
 void PrintSolveState(SolveState* state);
 
-bool HasSolution(SolveParams*);
+// make sure to free unsolvable tiles once you're done
+bool HasSolution(SolveParams*, TilePosition** unsolvableTiles, size_t* unsolvableTilesLen);

@@ -6,6 +6,10 @@
 
 #include <SDL.h>
 
+typedef struct TilePosition {
+	int x, y;
+} TilePosition;
+
 typedef enum TileState {
 	TILE_STATE_UNINITIALIZED	= 0b00000,
 	TILE_STATE_INITIALIZED 		= 0b00001,
@@ -119,6 +123,8 @@ typedef struct State {
 
 	} images;
 
+	SDL_Color backgroundColor;
+
 	struct {
 		bool down;
 		int tileHoverX, tileHoverY;
@@ -142,6 +148,7 @@ void State_RecalculateBoardLayout(State*);
 void State_RecalculateLayout(State*, int width, int height);
 
 void State_HandleEvent(State*, SDL_Event*);
+void State_HandleMenuEvent(State*, HWND, WORD id);
 void State_Update(State*);
 
 void State_DestroyBoard(State*);

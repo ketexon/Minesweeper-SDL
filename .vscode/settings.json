@@ -8,6 +8,7 @@
 		"sdl_image.h": "c",
 		"random": "c",
 		"win.h": "c",
-		"state.h": "c"
+		"state.h": "c",
+		"cstdlib": "c"
 	}
 }

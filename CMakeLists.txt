@@ -27,6 +27,8 @@ set(
 
 	src/Matrix.h src/Matrix.c
 
+	src/Menu.c
+
 	rc/rc.rc
 )
 

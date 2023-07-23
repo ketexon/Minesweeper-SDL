@@ -12,6 +12,18 @@ SDL_Rect* LoadRectResource(const wchar_t* name){
 	return (SDL_Rect*) mem;
 }
 
+
+typedef struct Color {
+	WORD r, g, b, a;
+} Color;
+
+Color* LoadColorResource(const wchar_t* name){
+	HRSRC src = FindResourceW(NULL, name, RC_TYPE_COLOR);
+	HGLOBAL data = LoadResource(NULL, src);
+	void* mem = LockResource(data);
+	return (Color*) mem;
+}
+
 void State_LoadResources(State* state) {
 	HRSRC tilesheetSrc = FindResourceW(NULL, RC_TILESHEET, RC_TYPE_IMAGE);
 	HGLOBAL tilesheetData = LoadResource(NULL, tilesheetSrc);
@@ -68,4 +80,12 @@ void State_LoadResources(State* state) {
 
 	state->images.tilesheet.border.urd = *LoadRectResource(RC_BORDER_URD);
 	state->images.tilesheet.border.uld = *LoadRectResource(RC_BORDER_ULD);
+
+	Color* bgColor = LoadColorResource(RC_BACKGROUND_COLOR);
+	state->backgroundColor = (SDL_Color) {
+		.r = bgColor->r,
+		.g = bgColor->g,
+		.b = bgColor->b,
+		.a = bgColor->a,
+	};
 }

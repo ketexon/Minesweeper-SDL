@@ -373,7 +373,22 @@ bool SolveIter(SolveState* state, bool phase2){
 	return madeChanges;
 }
 
-bool HasSolution(SolveParams* params) {
+// https://stackoverflow.com/questions/466204/rounding-up-to-next-power-of-2
+int RoundUpToPowerOf2(int value){
+	unsigned int v = value;
+
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v++;
+
+	return v;
+}
+
+bool HasSolution(SolveParams* params, TilePosition** unsolvableTilesOut, size_t* unsolvableTilesLenOut) {
 	SolveState* state = params->state;
 	SolveStateTile* tiles = state->tiles;
 
@@ -393,5 +408,51 @@ bool HasSolution(SolveParams* params) {
 		if(params->maxIters > 0 && i++ > params->maxIters) break;
 	}
 
-	return state->nMinesLeft == 0;
+	if(state->nMinesLeft != 0){
+		// unsolvable
+		// fill unsolvableTiles
+		size_t cap = (size_t) RoundUpToPowerOf2(state->nMinesLeft * 2);
+		if(cap < 16) cap = 16;
+		size_t len = 0;
+		TilePosition* unsolvableTiles = malloc(cap * sizeof(*unsolvableTiles));
+		for(int y = 0; y < state->h; ++y){
+			for(int x = 0; x < state->w; ++x){
+				int index = x + y * state->w;
+				if(!tiles[index].uncovered) {
+					// check if the tile is near an uncovered tile
+					bool nearUncovered = false;
+					for(int i = 0; i < 9; ++i){
+						int dx = i % 3 - 2;
+						int dy = i % 3 - 2;
+						int newX = x + dx, newY = y + dy;
+						if((dx == 0 && dy == 0) || newX < 0 || newY < 0 || newX >= state->w || newY >= state->h){
+							continue;
+						}
+						if(state->tiles[newX + state->w * newY].uncovered) {
+							nearUncovered = true;
+							break;
+						}
+					}
+
+					if(nearUncovered){
+						if(len >= cap){
+							cap *= 2;
+							unsolvableTiles = realloc(unsolvableTiles, cap * sizeof(*unsolvableTiles));
+						}
+						unsolvableTiles[len++] = (TilePosition) { x, y };
+					}
+				}
+			}
+		}
+
+		*unsolvableTilesOut = unsolvableTiles;
+		*unsolvableTilesLenOut = len;
+
+		return false;
+	}
+	else{
+		*unsolvableTilesOut = NULL;
+		*unsolvableTilesLenOut = 0;
+		return true;
+	}
 }

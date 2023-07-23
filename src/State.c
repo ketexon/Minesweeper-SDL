@@ -129,6 +129,13 @@ void State_InitBoard(State* state){
 	State_CreateBoard(state);
 }
 
+void State_ClearBoard(State* state){
+	for(int i = 0; i < state->board.width * state->board.height; ++i) {
+		state->board.tiles[i].state = TILE_STATE_UNINITIALIZED;
+		state->board.tiles[i].surroundingMines = 0;
+	}
+}
+
 void State_CreateBoard(State* state){
 	size_t nTiles = state->board.width * state->board.height;
 
@@ -162,33 +169,141 @@ void State_ResetBoard(State* state){
 	State_RecalculateLayout(state, windowWidth, windowHeight);
 }
 
-bool State_HasSolution(State* state, int tileX, int tileY) {
-	SolveStateTile* tiles = malloc(state->board.width * state->board.height * sizeof(*tiles));
+void State_InitFlags(State* state);
+
+/**
+ * @param solveStateTilesBuffer Buffer to be used for solve state to hold tiles
+ * @param problematicTiles Tiles that could not be solved
+ */
+bool State_HasSolution(State* state, SolveStateTile* solveStateTilesBuffer, int tileX, int tileY, TilePosition** problematicTiles, size_t* nProblematicTiles){
 	for(int i = 0; i < state->board.width * state->board.height; ++i){
-		tiles[i].flagged = state->board.tiles[i].state & TILE_STATE_FLAG;
-		tiles[i].uncovered = state->board.tiles[i].state & TILE_STATE_UNCOVERED;
-		tiles[i].surroundingMines = state->board.tiles[i].surroundingMines;
+		solveStateTilesBuffer[i].flagged = state->board.tiles[i].state & TILE_STATE_FLAG;
+		solveStateTilesBuffer[i].uncovered = state->board.tiles[i].state & TILE_STATE_UNCOVERED;
+		solveStateTilesBuffer[i].surroundingMines = state->board.tiles[i].surroundingMines;
 	}
 
 	SolveState solveState = {
 		.w = state->board.width,
 		.h = state->board.height,
 		.nMinesLeft = state->board.nMines - state->board.minesFlagged,
-		.tiles = tiles,
+		.tiles = solveStateTilesBuffer,
 		.log = false,
 	};
 
 	SolveParams solveParams = {
 		.state = &solveState,
 		.tileClicked = { tileX, tileY },
-		.maxIters = 50,
+		.maxIters = state->board.nMines / 2,
 	};
 
-	bool result = HasSolution(&solveParams);
-	// printf("HAS SOLUTION?: %d\n", result);
+	return HasSolution(&solveParams, problematicTiles, nProblematicTiles);
+}
 
-	free(tiles);
-	return result;
+bool State_EnsureSolvable(State* state, int tileX, int tileY){
+	SolveStateTile* sstBuffer = malloc(state->board.width * state->board.height * sizeof(*sstBuffer));
+
+	TilePosition* problematicTiles;
+	size_t nProblematicTiles;
+	bool hasSolution = State_HasSolution(state, sstBuffer, tileX, tileY, &problematicTiles, &nProblematicTiles);
+
+	TilePosition* candidateBuffer = malloc((SOLVER_MAX_PERTURBATION_DISTANCE * 2 + 1) * (SOLVER_MAX_PERTURBATION_DISTANCE * 2 + 1) * sizeof(*candidateBuffer));
+
+	int nPerturbations = 0;
+	while(!hasSolution && problematicTiles && nPerturbations++ < SOLVER_MAX_PERTURBATIONS){
+		// printf("Perturbation: %d\n", nPerturbations);
+		// Perturb problematic tiles
+
+		// iterate problematic tiles
+		for(int i = 0; i < nProblematicTiles; ++i){
+			TilePosition tilePosition = problematicTiles[i];
+			int x = tilePosition.x, y = tilePosition.y;
+			Tile* tile = &state->board.tiles[x + y * state->board.width];
+
+			// if its a mine, relocate
+			if(tile->state & TILE_STATE_MINE){
+				// count potential surrounding tiles
+				int nCandidates = 0;
+				for(int j = 0; j < (SOLVER_MAX_PERTURBATION_DISTANCE * 2 + 1) * (SOLVER_MAX_PERTURBATION_DISTANCE * 2 + 1); ++j){
+					int dx = j % (SOLVER_MAX_PERTURBATION_DISTANCE * 2 + 1) - SOLVER_MAX_PERTURBATION_DISTANCE;
+					int dy = j / (SOLVER_MAX_PERTURBATION_DISTANCE * 2 + 1) - SOLVER_MAX_PERTURBATION_DISTANCE;
+
+					if(abs(dx) < SOLVER_MIN_PERTURBATION_DISTANCE || abs(dy) < SOLVER_MIN_PERTURBATION_DISTANCE) continue;
+
+					int newX = x + dx;
+					int newY = y + dy;
+					if(
+						newX < 0 || newX >= state->board.width
+						|| newY < 0 || newY >= state->board.height
+						|| newX > tileX - BOARD_CLICK_SAFE_AREA && newX < tileX + BOARD_CLICK_SAFE_AREA
+						|| newY > tileY - BOARD_CLICK_SAFE_AREA && newY < tileX + BOARD_CLICK_SAFE_AREA
+					){
+						continue;
+					}
+
+					// dont move to where there's already a mine
+					if(state->board.tiles[newX + newY * state->board.width].state & TILE_STATE_MINE) continue;
+
+					bool isProblematic = false;
+					// dont move to a problematic tile
+					for(int k = 0; k < nProblematicTiles; ++k){
+						if(problematicTiles[k].x == x + dx && problematicTiles[k].y == y + dy) {
+							isProblematic = true;
+							break;
+						}
+					}
+					if(isProblematic) continue;
+
+					candidateBuffer[nCandidates++] = (TilePosition) { .x = newX, .y = newY };
+				}
+
+				if(nCandidates != 0){
+					int positionIndex = (int)((double) rand() / (RAND_MAX + 1) * nCandidates);
+					TilePosition position = candidateBuffer[positionIndex];
+					state->board.tiles[position.x + position.y * state->board.width].state |= TILE_STATE_MINE;
+					state->board.tiles[x + y * state->board.width].state &= ~TILE_STATE_MINE;
+				}
+			}
+		}
+
+		free(problematicTiles);
+
+		// recalculate flags
+		State_InitFlags(state);
+		hasSolution = State_HasSolution(state, sstBuffer, tileX, tileY, &problematicTiles, &nProblematicTiles);
+	}
+
+	free(candidateBuffer);
+
+	free(sstBuffer);
+	if(problematicTiles) free(problematicTiles);
+
+	return hasSolution;
+}
+
+void State_InitFlags(State* state){
+	// generate adjacent mine counts
+	// also set init flag
+	for(int tx = 0; tx < state->board.width; ++tx){
+		for(int ty = 0; ty < state->board.height; ++ty){
+			int index = tx + ty * state->board.width;
+			int minesSurroundingTile = 0;
+
+			for(int x = tx - 1; x <= tx + 1; ++x){
+				for(int y = ty - 1; y <= ty + 1; ++y){
+					if(x < 0 || x >= state->board.width || y < 0 || y >= state->board.height) {
+						continue;
+					}
+					if(state->board.tiles[x + y * state->board.width].state & TILE_STATE_MINE) {
+						++minesSurroundingTile;
+					}
+				}
+
+				state->board.tiles[index].surroundingMines = minesSurroundingTile;
+
+				state->board.tiles[index].state |= TILE_STATE_INITIALIZED;
+			}
+		}
+	}
 }
 
 // tileX,Y is the tile clicked to start the game
@@ -222,33 +337,11 @@ void State_InitMines(State* state, int tileX, int tileY){
 		if(minesLeft == 0) break;
 	}
 
-	// generate adjacent mine counts
-	// also set init flag
-	for(int tx = 0; tx < state->board.width; ++tx){
-		for(int ty = 0; ty < state->board.height; ++ty){
-			int index = tx + ty * state->board.width;
-			int minesSurroundingTile = 0;
+	State_InitFlags(state);
 
-			for(int x = tx - 1; x <= tx + 1; ++x){
-				for(int y = ty - 1; y <= ty + 1; ++y){
-					if(x < 0 || x >= state->board.width || y < 0 || y >= state->board.height) {
-						continue;
-					}
-					if(state->board.tiles[x + y * state->board.width].state & TILE_STATE_MINE) {
-						++minesSurroundingTile;
-					}
-				}
-
-				state->board.tiles[index].surroundingMines = minesSurroundingTile;
-
-				state->board.tiles[index].state |= TILE_STATE_INITIALIZED;
-			}
-		}
-	}
-
-	if(!State_HasSolution(state, tileX, tileY)){
-		State_ResetBoard(state);
-		State_StartGame(state, tileX, tileY);
+	if(!State_EnsureSolvable(state, tileX, tileY)){
+		State_ClearBoard(state);
+		State_InitMines(state, tileX, tileY);
 	}
 }
 
@@ -377,132 +470,6 @@ void State_UncheckDifficulty(State* state){
 	);
 }
 
-typedef struct CustomDifficultyResult {
-	uint32_t width, height;
-	uint32_t nMines;
-} CustomDifficultyResult;
-
-INT_PTR CustomDifficultyDialogProc(
-	HWND hwnd,
-	UINT msg,
-	WPARAM wParam,
-	LPARAM lParam
-){
-	const int msgresult = 0; // for some reason DWL_MSGRESULT is undeclared?
-	switch(msg){
-		case WM_INITDIALOG: {
-			// Set max number of characters to 3
-			SendDlgItemMessageW(
-				hwnd,
-				IDE_WIDTH,
-				EM_SETLIMITTEXT,
-				3, 0
-			);
-
-			SendDlgItemMessageW(
-				hwnd,
-				IDE_HEIGHT,
-				EM_SETLIMITTEXT,
-				3, 0
-			);
-
-			break;
-		}
-		case WM_COMMAND: {
-			WORD id = LOWORD(wParam);
-			if(id == IDOK){
-				wchar_t* end;
-
-				wchar_t buffer[4];
-
-				memset(buffer, 0, sizeof(buffer)/sizeof(*buffer));
-				*((WORD*) buffer) = 3;
-				SendDlgItemMessageW(hwnd, IDE_WIDTH, EM_GETLINE, 0, (LPARAM) buffer);
-				unsigned long width = wcstoul(buffer, &end, 10);
-
-				memset(buffer, 0, sizeof(buffer)/sizeof(*buffer));
-				*((WORD*) buffer) = 3;
-				SendDlgItemMessageW(hwnd, IDE_HEIGHT, EM_GETLINE, 0, (LPARAM) buffer);
-				unsigned long height = wcstoul(buffer, &end, 10);
-
-				memset(buffer, 0, sizeof(buffer)/sizeof(*buffer));
-				*((WORD*) buffer) = 3;
-				SendDlgItemMessageW(hwnd, IDE_MINES, EM_GETLINE, 0, (LPARAM) buffer);
-				unsigned long mines = wcstoul(buffer, &end, 10);
-
-				if(width <= 0 || height <= 0 || mines <= 0) {
-					MessageBoxW(hwnd, L"Width, height, and mines must be greater than 0", L"Input Error", MB_OK | MB_ICONERROR);
-					return TRUE;
-				}
-
-				if(width > 999 || height > 999) {
-					return TRUE;
-				}
-
-				if(mines >= width * height) {
-					MessageBoxW(hwnd, L"Too many mines", L"Input Error", MB_OK | MB_ICONERROR);
-					return TRUE;
-				}
-
-				CustomDifficultyResult* res = malloc(sizeof(CustomDifficultyResult));
-				res->width = width;
-				res->height = height;
-				res->nMines = mines;
-				EndDialog(hwnd, (INT_PTR) res);
-				return TRUE;
-			}
-			else if(id == IDE_WIDTH || id == IDE_HEIGHT || id == IDE_MINES){
-				WORD msg = HIWORD(wParam);
-				if(msg == EN_UPDATE) {
-					WORD length = (WORD) SendDlgItemMessageW(
-						hwnd,
-						id,
-                        EM_LINELENGTH,
-						0, 0
-					);
-					if(length == 0) break;
-
-					wchar_t buffer[4] = { 0 };
-					// required for
-					*((WORD*) buffer) = 3;
-
-					SendDlgItemMessageW(
-						hwnd,
-						id,
-                        EM_GETLINE,
-						0, (LPARAM) buffer
-					);
-
-					wchar_t newBuffer[4] = { 0 };
-
-					bool textChanged = false;
-					int j = 0;
-					for(int i = 0; buffer[i] != 0; ++i){
-						if(iswdigit(buffer[i])){
-							newBuffer[j++] = buffer[i];
-						}
-						else {
-							textChanged = true;
-						}
-					}
-
-					if(textChanged){
-						WORD oldSel = LOWORD(SendDlgItemMessageW(hwnd, id, EM_GETSEL, (WPARAM) NULL, (LPARAM) NULL));
-						SendDlgItemMessageW(hwnd, id, WM_SETTEXT, 0, (LPARAM) newBuffer);
-						SendDlgItemMessageW(hwnd, id, EM_SETSEL, (WPARAM) oldSel - 1, (LPARAM) oldSel - 1);
-					}
-				}
-			}
-			break;
-		}
-		case WM_CLOSE: {
-			EndDialog(hwnd, 0);
-			return TRUE;
-		}
-	}
-	return FALSE;
-}
-
 void State_HandleEvent(State* state, SDL_Event* event){
 	switch(event->type){
 		case SDL_WINDOWEVENT: {
@@ -612,96 +579,7 @@ void State_HandleEvent(State* state, SDL_Event* event){
 
 			if(msg == WM_COMMAND && HIWORD(wParam) == 0){
 				WORD id = LOWORD(wParam);
-				if(id == IDM_EXIT){
-					state->shouldQuit = true;
-				}
-				else if(id == IDM_EASY){
-					state->board.nMines = BOARD_N_MINES_EASY;
-					state->board.width = BOARD_WIDTH_EASY;
-					state->board.height = BOARD_HEIGHT_EASY;
-					State_ResetBoard(state);
-
-					State_UncheckDifficulty(state);
-					CheckMenuItem(
-						state->menu,
-						IDM_EASY,
-						MF_BYCOMMAND | MF_CHECKED
-					);
-				}
-				else if(id == IDM_MEDIUM){
-					state->board.nMines = BOARD_N_MINES_MEDIUM;
-					state->board.width = BOARD_WIDTH_MEDIUM;
-					state->board.height = BOARD_HEIGHT_MEDIUM;
-					State_ResetBoard(state);
-
-					State_UncheckDifficulty(state);
-					CheckMenuItem(
-						state->menu,
-						IDM_MEDIUM,
-						MF_BYCOMMAND | MF_CHECKED
-					);
-				}
-				else if(id == IDM_HARD){
-					state->board.nMines = BOARD_N_MINES_HARD;
-					state->board.width = BOARD_WIDTH_HARD;
-					state->board.height = BOARD_HEIGHT_HARD;
-					State_ResetBoard(state);
-
-					State_UncheckDifficulty(state);
-					CheckMenuItem(
-						state->menu,
-						IDM_HARD,
-						MF_BYCOMMAND | MF_CHECKED
-					);
-				}
-				else if(id == IDM_CUSTOM){
-					CustomDifficultyResult* res = (CustomDifficultyResult*) DialogBoxParamW(
-						NULL,
-						RC_CUSTOM_DIFFICULTY_DIALOG,
-						hwnd,
-						&CustomDifficultyDialogProc,
-						0
-					);
-					if(res != NULL){
-						state->board.nMines = res->nMines;
-						state->board.width = res->width;
-						state->board.height = res->height;
-						State_ResetBoard(state);
-
-						State_UncheckDifficulty(state);
-						CheckMenuItem(
-							state->menu,
-							IDM_CUSTOM,
-							MF_BYCOMMAND | MF_CHECKED
-						);
-
-						wchar_t newCustomDifficultyText[sizeof("000x000, 000 mines") + 1];
-						swprintf(
-							newCustomDifficultyText,
-							sizeof(newCustomDifficultyText)/sizeof(*newCustomDifficultyText) - 1,
-							L"%ux%u, %u mines",
-							res->width,
-							res->height,
-							res->nMines
-						);
-
-						MENUITEMINFOW info = {
-							.cbSize = sizeof(MENUITEMINFOW),
-							.fMask = MIIM_STRING,
-							.dwTypeData = newCustomDifficultyText,
-							.cch = wcslen(newCustomDifficultyText),
-						};
-
-						SetMenuItemInfoW(
-							state->menu,
-							IDM_CUSTOM,
-							false,
-							&info
-						);
-
-						free(res);
-					}
-				}
+				State_HandleMenuEvent(state, hwnd, id);
 			}
 			break;
 		}
@@ -710,7 +588,13 @@ void State_HandleEvent(State* state, SDL_Event* event){
 
 void State_Update(State* state){
 	// c0c0c0
-	SDL_SetRenderDrawColor(state->sdl.renderer, 0xC0, 0xC0, 0xC0, 0xFF);
+	SDL_SetRenderDrawColor(
+		state->sdl.renderer,
+		state->backgroundColor.r,
+		state->backgroundColor.g,
+		state->backgroundColor.b,
+		state->backgroundColor.a
+	);
 	SDL_RenderClear(state->sdl.renderer);
 
 	// Draw UI
@@ -907,20 +791,4 @@ void State_Destroy(State* state){
 	if(state->board.rects) free(state->board.rects);
 
 	if(state->menu) DestroyMenu(state->menu);
-}
-
-
-
-void State_CreateMenu(State* state){
-	SDL_SysWMinfo wmInfo;
-	SDL_VERSION(&wmInfo.version);
-	SDL_GetWindowWMInfo(state->sdl.window, &wmInfo);
-	HWND hwnd = wmInfo.info.win.window;
-
-	state->menu = LoadMenuW(
-		(HINSTANCE) GetWindowLongPtrW(hwnd, GWLP_HINSTANCE),
-		RC_MENU
-	);
-
-	if(state->menu) SetMenu(hwnd, state->menu);
 }
