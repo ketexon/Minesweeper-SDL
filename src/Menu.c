@@ -55,6 +55,26 @@ void State_UncheckDifficulty(State* state){
 	);
 }
 
+void State_UncheckGamemode(State* state){
+	CheckMenuItem(state->menu, IDM_GAMEMODE_DEFAULT, MF_BYCOMMAND | MF_UNCHECKED);
+	CheckMenuItem(state->menu, IDM_GAMEMODE_CUSTOM, MF_BYCOMMAND | MF_UNCHECKED);
+
+	MENUITEMINFOW info = {
+		.cbSize = sizeof(MENUITEMINFOW),
+		.fMask = MIIM_STRING,
+		.dwTypeData = MENU_DEFAULT_CUSTOM_GAMEMODE_TEXT,
+		.cch = sizeof(MENU_DEFAULT_CUSTOM_GAMEMODE_TEXT)/sizeof(*MENU_DEFAULT_CUSTOM_GAMEMODE_TEXT) - 1
+	};
+
+	SetMenuItemInfoW(
+		state->menu,
+		IDM_GAMEMODE_CUSTOM,
+		false,
+		&info
+	);
+}
+
+
 void State_UncheckTheme(State* state){
 	CheckMenuItem(state->menu, IDM_THEME_DEFAULT, MF_BYCOMMAND | MF_UNCHECKED);
 	CheckMenuItem(state->menu, IDM_THEME_CUTE, MF_BYCOMMAND | MF_UNCHECKED);
@@ -75,7 +95,7 @@ void State_UncheckTheme(State* state){
 	);
 }
 
-LPWSTR State_CreateCustomThemeFileDialog(State* state){
+LPWSTR State_CreateFileDialog(State* state, COMDLG_FILTERSPEC* filters, size_t nFilters, LPCWSTR defaultExtension){
 	LPWSTR filePathOut = NULL;
 
 	// state->images.tilesheet.texture = state->images.tilesheet.sourceTextures.original;
@@ -94,17 +114,11 @@ LPWSTR State_CreateCustomThemeFileDialog(State* state){
 		if(SUCCEEDED(hr)){
 			hr = fileDialog->lpVtbl->SetOptions(fileDialog, options | FOS_FORCEFILESYSTEM);
 			if(SUCCEEDED(hr)){
-				COMDLG_FILTERSPEC filters[] = {
-					{
-						.pszName = L"Image",
-						.pszSpec = L"*.png",
-					},
-				};
-				hr = fileDialog->lpVtbl->SetFileTypes(fileDialog, sizeof(filters) / sizeof(*filters), filters);
+				hr = fileDialog->lpVtbl->SetFileTypes(fileDialog, nFilters, filters);
 				if(SUCCEEDED(hr)){
 					hr = fileDialog->lpVtbl->SetFileTypeIndex(fileDialog, 1);
 					if(SUCCEEDED(hr)){
-						hr = fileDialog->lpVtbl->SetDefaultExtension(fileDialog, L"png");
+						hr = fileDialog->lpVtbl->SetDefaultExtension(fileDialog, defaultExtension);
 						if(SUCCEEDED(hr)){
 							hr = fileDialog->lpVtbl->Show(fileDialog, NULL);
 
@@ -267,7 +281,13 @@ void State_HandleMenuEvent(State* state, HWND hwnd, WORD id){
 			MF_BYCOMMAND | MF_CHECKED
 		);
 	} else if(id == IDM_THEME_CUSTOM){
-		LPWSTR filePath = State_CreateCustomThemeFileDialog(state);
+		COMDLG_FILTERSPEC filters[] = {
+			{
+				.pszName = L"Image",
+				.pszSpec = L"*.png",
+			},
+		};
+		LPWSTR filePath = State_CreateFileDialog(state, filters, sizeof(filters)/sizeof(*filters), L"png");
 
 		if(filePath != NULL){
 			int mbBufferSize = WideCharToMultiByte(
@@ -327,6 +347,91 @@ void State_HandleMenuEvent(State* state, HWND hwnd, WORD id){
 				);
 
 				free(newMenuText);
+			}
+			else{
+				printf("Could not convert wstr to mbstr\n");
+			}
+
+			CoTaskMemFree(filePath);
+			free(filePathMB);
+		}
+	} else if(id == IDM_GAMEMODE_DEFAULT){
+		if(state->game.mode != GAMEMODE_DEFAULT){
+			state->game.mode = GAMEMODE_DEFAULT;
+
+			State_UncheckGamemode(state);
+			CheckMenuItem(
+				state->menu,
+				IDM_GAMEMODE_DEFAULT,
+				MF_BYCOMMAND | MF_CHECKED
+			);
+
+			State_ResetBoard(state);
+		}
+	} else if(id == IDM_GAMEMODE_CUSTOM) {
+		COMDLG_FILTERSPEC filters[] = {
+			{
+				.pszName = L"Lua source",
+				.pszSpec = L"*.lua",
+			},
+		};
+		LPWSTR filePath = State_CreateFileDialog(state, filters, sizeof(filters)/sizeof(*filters), L"lua");
+
+		if(filePath != NULL){
+			int mbBufferSize = WideCharToMultiByte(
+				CP_UTF8, 0,
+				filePath, -1,
+				NULL, 0,
+				NULL, NULL
+			);
+			char* filePathMB = malloc(mbBufferSize);
+
+			mbBufferSize = WideCharToMultiByte(
+				CP_UTF8, 0,
+				filePath, -1,
+				filePathMB, mbBufferSize,
+				NULL, NULL
+			);
+
+			if(mbBufferSize != 0){
+				state->game.mode = GAMEMODE_CUSTOM;
+				bool success = State_InitLua(state, filePathMB);
+				if(success){
+					State_ResetBoard(state);
+
+					LPWSTR fileName = PathFindFileNameW(filePath);
+
+					State_UncheckGamemode(state);
+					CheckMenuItem(
+						state->menu,
+						IDM_GAMEMODE_CUSTOM,
+						MF_BYCOMMAND | MF_CHECKED
+					);
+
+					size_t newMenuTextLength = sizeof(MENU_DEFAULT_CUSTOM_GAMEMODE_TEXT)/sizeof(*MENU_DEFAULT_CUSTOM_GAMEMODE_TEXT) // Default
+						+ 1 // \t
+						+ wcslen(fileName) // filename
+						+ 2;// quotes
+
+					LPWSTR newMenuText = malloc((newMenuTextLength + 1) * sizeof(*newMenuText));
+					swprintf_s(newMenuText, newMenuTextLength + 1, L"%s\t\"%s\"", MENU_DEFAULT_CUSTOM_THEME_TEXT, fileName);
+
+					MENUITEMINFOW info = {
+						.cbSize = sizeof(MENUITEMINFOW),
+						.fMask = MIIM_STRING,
+						.dwTypeData = newMenuText,
+						.cch = newMenuTextLength
+					};
+
+					SetMenuItemInfoW(
+						state->menu,
+						IDM_GAMEMODE_CUSTOM,
+						false,
+						&info
+					);
+
+					free(newMenuText);
+				}
 			}
 			else{
 				printf("Could not convert wstr to mbstr\n");

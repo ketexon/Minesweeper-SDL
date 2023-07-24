@@ -31,6 +31,8 @@ set(
 
 	src/Menu.c
 
+	src/Lua.h src/Lua.c
+
 	rc/rc.rc
 )
 
@@ -46,6 +48,7 @@ target_link_libraries(
 	SDL2::SDL2
 	SDL2::SDL2main
 	SDL2_image
+	lua::lib
 	Shlwapi.lib
 )
 

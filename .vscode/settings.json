@@ -12,6 +12,9 @@
 		"cstdlib": "c",
 		"constants.h": "c",
 		"combaseapi.h": "c",
-		"objbase.h": "c"
+		"objbase.h": "c",
+		"iosfwd": "c",
+		"xlocbuf": "c",
+		"stdbool.h": "c"
 	}
 }

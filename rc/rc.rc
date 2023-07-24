@@ -217,6 +217,11 @@ KET_MENU MENU {
 		MENUITEM "&Kitty cat barbie cute twink boyfriend", 221
 		MENUITEM "&Custom", 229
 	}
+	POPUP "&Game mode"
+	{
+		MENUITEM "&Default", 300, CHECKED
+		MENUITEM "&Custom", 301
+	}
 }
 
 KET_CUSTOM_DIFFICULTY DIALOGEX 10, 10, 96, 70

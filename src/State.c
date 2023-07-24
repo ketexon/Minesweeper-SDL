@@ -12,9 +12,10 @@
 #include <SDL_image.h>
 #include <SDL_syswm.h>
 
+#include "Lua.h"
 #include "Solver.h"
 
-void State_StartGame(State* state, int tileX, int tileY);
+bool State_StartGame(State* state, int tileX, int tileY);
 
 #ifdef KET_DEBUG
 void DrawLayoutOutlineV2(State* state){
@@ -175,7 +176,7 @@ void State_ResetBoard(State* state){
 	State_RecalculateLayout(state, windowWidth, windowHeight);
 }
 
-void State_InitFlags(State* state);
+void State_GenerateFlagsDefault(State* state);
 
 /**
  * @param solveStateTilesBuffer Buffer to be used for solve state to hold tiles
@@ -205,7 +206,7 @@ bool State_HasSolution(State* state, SolveStateTile* solveStateTilesBuffer, int 
 	return HasSolution(&solveParams, problematicTiles, nProblematicTiles);
 }
 
-bool State_EnsureSolvable(State* state, int tileX, int tileY){
+bool State_EnsureSolvableDefault(State* state, int tileX, int tileY){
 	SolveStateTile* sstBuffer = malloc(state->board.width * state->board.height * sizeof(*sstBuffer));
 
 	TilePosition* problematicTiles;
@@ -274,7 +275,7 @@ bool State_EnsureSolvable(State* state, int tileX, int tileY){
 		free(problematicTiles);
 
 		// recalculate flags
-		State_InitFlags(state);
+		State_GenerateFlagsDefault(state);
 		hasSolution = State_HasSolution(state, sstBuffer, tileX, tileY, &problematicTiles, &nProblematicTiles);
 	}
 
@@ -286,7 +287,7 @@ bool State_EnsureSolvable(State* state, int tileX, int tileY){
 	return hasSolution;
 }
 
-void State_InitFlags(State* state){
+void State_GenerateFlagsDefault(State* state){
 	// generate adjacent mine counts
 	// also set init flag
 	for(int tx = 0; tx < state->board.width; ++tx){
@@ -312,9 +313,7 @@ void State_InitFlags(State* state){
 	}
 }
 
-// tileX,Y is the tile clicked to start the game
-// we must guarentee that there are no mines within 3x3 of that tile
-void State_InitMines(State* state, int tileX, int tileY){
+void State_GenerateMinesDefault(State* state, int tileX, int tileY){
 	// generate mines
 	int nTiles = state->board.width * state->board.height;
 	int tilesLeft = nTiles - (BOARD_CLICK_SAFE_AREA * 2 + 1) * (BOARD_CLICK_SAFE_AREA * 2 + 1);
@@ -342,21 +341,45 @@ void State_InitMines(State* state, int tileX, int tileY){
 
 		if(minesLeft == 0) break;
 	}
+}
 
-	State_InitFlags(state);
+void State_CreateGameDefault(State* state, int tileX, int tileY){
+	State_GenerateMinesDefault(state, tileX, tileY);
+	State_GenerateFlagsDefault(state);
 
-	if(!State_EnsureSolvable(state, tileX, tileY)){
+	if(!State_EnsureSolvableDefault(state, tileX, tileY)){
 		State_ClearBoard(state);
-		State_InitMines(state, tileX, tileY);
+		State_CreateGameDefault(state, tileX, tileY);
 	}
 }
 
-void State_StartGame(State* state, int tileX, int tileY){
+bool State_CreateGameCustom(State* state, int tileX, int tileY){
+	return State_Lua_GenerateBoard(state, tileX, tileY);
+}
+
+// tileX,Y is the tile clicked to start the game
+// we must guarentee that there are no mines within 3x3 of that tile
+bool State_CreateGame(State* state, int tileX, int tileY){
+	if(state->game.mode == GAMEMODE_DEFAULT){
+		State_CreateGameDefault(state, tileX, tileY);
+		return true;
+	}
+	else {
+		return State_CreateGameCustom(state, tileX, tileY);
+	}
+}
+
+bool State_StartGame(State* state, int tileX, int tileY){
 	srand(time(NULL));
 
-	State_InitMines(state, tileX, tileY);
-	state->ticksStarted = SDL_GetTicks64();
-	state->gameStarted = true;
+	if(State_CreateGame(state, tileX, tileY)){
+		state->ticksStarted = SDL_GetTicks64();
+		state->gameStarted = true;
+		return true;
+	}
+	else{
+		return false;
+	}
 }
 
 void State_LoseGame(State* state){
@@ -416,7 +439,7 @@ void State_ClickTile(State* state, int tileX, int tileY) {
 	if(tile->state & TILE_STATE_FLAG) return;
 
 	if(!(tile->state & TILE_STATE_INITIALIZED)) {
-		State_StartGame(state, tileX, tileY);
+		if(!State_StartGame(state, tileX, tileY)) return;
 	}
 
 	if(tile->state & TILE_STATE_MINE) {
@@ -761,6 +784,8 @@ void State_Destroy(State* state){
 	if(state->board.rects) free(state->board.rects);
 
 	if(state->menu) DestroyMenu(state->menu);
+
+	State_DestroyLua(state);
 
 	CoUninitialize();
 }

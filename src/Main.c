@@ -12,6 +12,8 @@
 #include "Win.h"
 #include <conio.h>
 
+#include "Lua.h"
+
 int main(int argc, char* argv[]){
 #ifdef KET_DEBUG
 	if(AllocConsole()){

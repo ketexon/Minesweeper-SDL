@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 #include <SDL.h>
+#include <lualib.h>
 
 typedef struct TilePosition {
 	int x, y;
@@ -24,6 +25,11 @@ typedef struct Tile {
 	TileState state;
 	uint8_t surroundingMines;
 } Tile;
+
+typedef enum GameMode {
+	GAMEMODE_DEFAULT,
+	GAMEMODE_CUSTOM
+} GameMode;
 
 typedef struct State {
 	bool shouldQuit;
@@ -85,6 +91,16 @@ typedef struct State {
 		int tilesLeft;
 		int minesFlagged;
 	} board;
+
+	struct {
+		GameMode mode;
+		struct {
+			lua_State* state;
+			int createGameRef;
+			int generateMinesRef;
+			int countMinesRef;
+		} lua;
+	} game;
 
 	struct {
 		struct {
@@ -149,7 +165,12 @@ void State_CreateMenu(State*);
 void State_InitBoard(State*);
 void State_InitLayout(State*);
 
+void State_ResetBoard(State*);
 void State_CreateBoard(State*);
+
+void State_GenerateMinesDefault(State* state, int tileX, int tileY);
+void State_GenerateFlagsDefault(State* state);
+void State_CreateGameDefault(State*, int tileX, int tileY);
 
 void State_RecalculateBoardLayout(State*);
 void State_RecalculateLayout(State*, int width, int height);
